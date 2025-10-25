@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",                // Latest JS features
+    "module": "NodeNext",              // Best for ESM + Node
+    "moduleResolution": "NodeNext",    // ESM module resolution
+    "rootDir": "./src",                // Source folder
+    "outDir": "./dist",                // Compiled JS goes here
+    "strict": true,                    // Full type safety
+    "esModuleInterop": true,           // Default import from CJS
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],          // Look for all TS files in src
+  "exclude": ["node_modules", "dist"]  // Exclude compiled output & deps
+}
