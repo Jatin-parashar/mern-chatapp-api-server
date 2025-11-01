@@ -15,16 +15,16 @@
  *
  * This module exports a logger instance that can be used throughout the application.
  *
- * Error handling is in place to avoid logging failures during the transport or when the environment
- * variables are misconfigured.
- *
  * @module logger
  */
 
+/** Pino logging library for structured logging */
 import pino from "pino";
 
+/** Environment check for development mode */
 const isDevelopment = process.env.NODE_ENV === "development";
 
+/** Pino transport configuration for pretty printing in development */
 const transport = isDevelopment
   ? pino.transport({
       target: "pino-pretty",
@@ -36,8 +36,10 @@ const transport = isDevelopment
     })
   : undefined;
 
+/** Log level based on environment - debug for development, info for production */
 const logLevel = isDevelopment ? "debug" : "info";
 
+/** Main logger instance configured with environment-specific settings */
 const logger = pino(
   {
     level: logLevel,

@@ -4,7 +4,7 @@ import AppError from "./appError.js";
 const nameSchema = Joi.string()
   .min(3)
   .max(30)
-  .regex(/^[A-Za-z\s]+$/)
+  .pattern(/^[A-Za-z\s]+$/)
   .required()
   .messages({
     "string.min": "Name must be at least 3 characters long",
@@ -36,14 +36,17 @@ const passwordSchema = Joi.string()
 
 type Validator = (value: string) => Joi.ValidationResult;
 
-export const validateName = (name: string): Joi.ValidationResult => 
-  nameSchema.validate(name);
+export const validateName = (name: string): Joi.ValidationResult => {
+  return nameSchema.validate(name);
+};
 
-export const validateEmail = (email: string): Joi.ValidationResult => 
-  emailSchema.validate(email);
+export const validateEmail = (email: string): Joi.ValidationResult => {
+  return emailSchema.validate(email);
+};
 
-export const validatePassword = (password: string): Joi.ValidationResult => 
-  passwordSchema.validate(password);
+export const validatePassword = (password: string): Joi.ValidationResult => {
+  return passwordSchema.validate(password);
+};
 
 export const validateField = (value: string, validator: Validator): void => {
   const validation = validator(value);
