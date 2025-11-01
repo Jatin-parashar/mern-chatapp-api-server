@@ -51,7 +51,6 @@ Create a `.env` file with the following configuration:
 # Server Configuration
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
-SOCKET_URL=http://localhost:3000
 
 # Database
 DATABASE_URI=mongodb://localhost:27017/chatAppDB
@@ -328,8 +327,8 @@ The server acts as a signaling server for WebRTC peer-to-peer connections, handl
 
 ```
 server/
-├── config/          # Database & service configurations
-├── controllers/     # HTTP request handlers
+├── config/         # Database & service configurations
+├── controllers/    # HTTP request handlers
 ├── models/         # MongoDB schemas
 ├── routes/         # API route definitions
 ├── services/       # Business logic layer
