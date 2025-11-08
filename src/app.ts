@@ -17,7 +17,7 @@ import { apiLimiter } from "./middlewares/rateLimit.middleware.js";
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (err) => {
-  logger.fatal(err, "UNCAUGHT EXCEPTION! Shutting down...");
+  logger.fatal({ error: err.message, stack: err.stack }, "UNCAUGHT EXCEPTION! Shutting down...");
   process.exit(1);
 });
 
@@ -46,7 +46,14 @@ app.use(helmet({
 }));
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      const allowedOrigins = [process.env.CLIENT_URL, 'http://localhost:5173'];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -54,8 +61,6 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use((req, res, next) => {
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
   next();
 });
@@ -67,7 +72,7 @@ cloudinaryConfig();
 connectDB();
 
 // Routes
-app.use("/api/v1",apiLimiter, routes);
+app.use("/api/v1", apiLimiter, routes);
 
 // Handle undefined routes
 app.all("/{*any}", (req, res, next) => {
@@ -87,8 +92,8 @@ server.listen(PORT, () => {
 });
 
 // Handle unhandled rejections
-process.on("unhandledRejection", (err) => {
-  logger.fatal(err, "UNHANDLED REJECTION! Shutting down...");
+process.on("unhandledRejection", (err:Error) => {
+  logger.fatal({ error: err.message, stack: err.stack }, "UNHANDLED REJECTION! Shutting down...");
   server.close(() => {
     process.exit(1);
   });
