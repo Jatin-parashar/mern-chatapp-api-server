@@ -30,18 +30,18 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
 
 export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const limit = parseInt(req.query.limit as string) || 100;
+  const limit = parseInt(req.query.limit as string) || 50;
   const skip = parseInt(req.query.skip as string) || 0;
 
-  const messages = await fetchMessagesByConversationId(id);
-  
-  // Apply pagination
-  const paginatedMessages = messages.slice(skip, skip + limit);
+  const [messages, total] = await Promise.all([
+    fetchMessagesByConversationId(id, limit, skip),
+    Message.countDocuments({ conversationId: id })
+  ]);
 
   sendSuccessResponse(res, 200, "Messages fetched successfully", {
-    messages: paginatedMessages,
-    count: paginatedMessages.length,
-    total: messages.length,
+    messages,
+    count: messages.length,
+    total,
   });
 });
 
