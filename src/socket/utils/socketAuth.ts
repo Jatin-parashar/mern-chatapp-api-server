@@ -10,7 +10,7 @@ export interface CustomSocket extends Socket {
 }
 
 export const authenticateSocket = (
-  socket: CustomSocket,
+  socket: Socket,
   next: (err?: ExtendedError) => void
 ): void => {
   try {
@@ -23,9 +23,10 @@ export const authenticateSocket = (
 
     const user = validateAccessToken(token) as JwtPayload;
     
-    // Type assertion after validation
-    socket.userId = user._id;
-    socket.userEmail = user.email;
+    // Cast to CustomSocket and add user data
+    const customSocket = socket as CustomSocket;
+    customSocket.userId = user._id;
+    customSocket.userEmail = user.email;
 
     next();
   } catch (error) {

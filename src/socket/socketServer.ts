@@ -22,6 +22,7 @@ import { registerChatHandlers } from "./handlers/chat.handlers.js";
 import { registerTypingHandlers } from "./handlers/typing.handlers.js";
 import { registerCallHandlers } from "./handlers/call.handlers.js";
 import { updateCallStatus } from "../services/call.service.js";
+import { authenticateSocket } from "./utils/socketAuth.js";
 import type { Server as HTTPServer } from "http";
 
 /**
@@ -38,6 +39,9 @@ export const initSocketServer = (server: HTTPServer): Server => {
     pingTimeout: 60000,
     pingInterval: 25000,
   });
+
+  // Apply authentication middleware
+  io.use(authenticateSocket);
 
   io.on(SOCKET_CONNECTION, (socket: Socket) => {
     logger.debug(`User connected: ${socket.id}`);
