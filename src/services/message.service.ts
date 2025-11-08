@@ -6,7 +6,6 @@ import { messagePopulateOptions } from "../utils/populateOptions.js";
 import { validateUserBelongsToConversation } from "./conversation.service.js";
 import { toString } from "../utils/common.js";
 import logger from "../utils/logger.js";
-import { IMessage } from "../types/models.js";
 import { MessageWithPopulatedFields } from "../types/service.js";
 
 interface MessageData {
