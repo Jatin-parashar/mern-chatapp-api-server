@@ -1,6 +1,7 @@
 import { Response } from "express";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
+import { sendSuccessResponse } from "../utils/response.js";
 import {
   createAccessToken,
   createRefreshToken,
@@ -28,10 +29,8 @@ export const register = catchAsync(
     const accessToken = createAccessToken(createdUser);
     const refreshToken = createRefreshToken(createdUser);
 
-    res.status(201).json({
-      status: "success",
-      message: "User created successfully",
-      createdUser,
+    sendSuccessResponse(res, 201, "User created successfully", {
+      user: createdUser,
       accessToken,
       refreshToken,
     });
@@ -46,17 +45,15 @@ export const login = catchAsync(async (req: AuthFileRequest, res: Response) => {
   const accessToken = createAccessToken(authenticatedUser);
   const refreshToken = createRefreshToken(authenticatedUser);
 
-  res.status(200).json({
-    status: "success",
-    message: "User logged in",
-    authenticatedUser,
+  sendSuccessResponse(res, 200, "User logged in", {
+    user: authenticatedUser,
     accessToken,
     refreshToken,
   });
 });
 
 export const logout = (req: AuthFileRequest, res: Response): void => {
-  res.status(200).json({ status: "success", message: "Logged out" });
+  sendSuccessResponse(res, 200, "Logged out");
 };
 
 export const refreshToken = catchAsync(
@@ -73,10 +70,8 @@ export const refreshToken = catchAsync(
 
     const accessToken = createAccessToken(user);
 
-    res.status(200).json({
-      status: "success",
-      message: "Token refreshed successfully",
-      authenticatedUser,
+    sendSuccessResponse(res, 200, "Token refreshed successfully", {
+      user: authenticatedUser,
       accessToken,
     });
   }

@@ -6,6 +6,7 @@ import {
   markMessageAsSeen,
 } from "../services/message.service.js";
 import catchAsync from "../utils/catchAsync.js";
+import { sendSuccessResponse } from "../utils/response.js";
 import { AuthRequest } from "../types/express.js";
 
 export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -24,11 +25,7 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
     messageData
   );
 
-  res.status(201).json({
-    status: "success",
-    message: "Message sent successfully",
-    data: message,
-  });
+  sendSuccessResponse(res, 201, "Message sent successfully", { message });
 });
 
 export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -41,12 +38,10 @@ export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res
   // Apply pagination
   const paginatedMessages = messages.slice(skip, skip + limit);
 
-  res.status(200).json({
-    status: "success",
-    message: "Messages fetched successfully",
+  sendSuccessResponse(res, 200, "Messages fetched successfully", {
+    messages: paginatedMessages,
     count: paginatedMessages.length,
     total: messages.length,
-    data: paginatedMessages,
   });
 });
 
@@ -66,9 +61,7 @@ export const markConversationMessagesSeen = catchAsync(async (req: AuthRequest, 
     { $addToSet: { seenBy: req.user!._id } }
   );
 
-  res.status(200).json({
-    status: "success",
-    message: `${messageIds.length} messages marked as seen.`,
+  sendSuccessResponse(res, 200, `${messageIds.length} messages marked as seen.`, {
     count: messageIds.length,
   });
 });
@@ -78,10 +71,11 @@ export const markMessageSeen = catchAsync(async (req: AuthRequest, res: Response
 
   const alreadySeen = await markMessageAsSeen(id, req.user!._id);
 
-  res.status(200).json({
-    status: "success",
-    message: alreadySeen
+  sendSuccessResponse(
+    res,
+    200,
+    alreadySeen
       ? "Message already marked as seen"
-      : "Message marked as seen successfully",
-  });
+      : "Message marked as seen successfully"
+  );
 });

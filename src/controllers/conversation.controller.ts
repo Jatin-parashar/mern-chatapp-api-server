@@ -1,5 +1,6 @@
 import { Response } from "express";
 import catchAsync from "../utils/catchAsync.js";
+import { sendSuccessResponse } from "../utils/response.js";
 import {
   fetchUserConversations,
   fetchUserConversationsById,
@@ -19,13 +20,14 @@ export const createConversation = catchAsync(
       isGroup,
     });
 
-    res.status(created ? 201 : 200).json({
-      status: "success",
-      message: created
+    sendSuccessResponse(
+      res,
+      created ? 201 : 200,
+      created
         ? `A new ${isGroup ? "group " : ""}chat is successfully created`
         : "Conversation already exists",
-      conversation,
-    });
+      { conversation }
+    );
   }
 );
 
@@ -33,9 +35,7 @@ export const getUserConversations = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const conversations = await fetchUserConversations(req.user!._id);
 
-    res.status(200).json({
-      status: "success",
-      message: "User conversations fetched successfully",
+    sendSuccessResponse(res, 200, "User conversations fetched successfully", {
       conversations,
     });
   }
@@ -48,9 +48,7 @@ export const getConversationById = catchAsync(
       req.user!._id
     );
 
-    res.status(200).json({
-      status: "success",
-      message: "Conversation fetched successfully",
+    sendSuccessResponse(res, 200, "Conversation fetched successfully", {
       conversation,
     });
   }
