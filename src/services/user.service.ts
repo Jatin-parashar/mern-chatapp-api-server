@@ -9,14 +9,41 @@ export const findUserById = async (id: string | Types.ObjectId): Promise<IUser> 
   return user;
 };
 
-export const findAllUsers = async (): Promise<IUser[]> => {
-  return await User.find();
+export const findAllUsers = async (
+  limit?: number,
+  skip?: number
+): Promise<IUser[]> => {
+  let query = User.find();
+
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
+  if (skip !== undefined) {
+    query = query.skip(skip);
+  }
+
+  return await query;
 };
 
-export const searchUsers = async (keyword: string = ""): Promise<IUser[]> => {
-  return await User.find({
+export const searchUsers = async (
+  keyword: string = "",
+  limit?: number,
+  skip?: number
+): Promise<IUser[]> => {
+  let query = User.find({
     name: { $regex: keyword, $options: "i" },
   });
+
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
+  if (skip !== undefined) {
+    query = query.skip(skip);
+  }
+
+  return await query;
 };
 
 export const updateUserStatus = async (
@@ -33,4 +60,11 @@ export const updateUserStatus = async (
 
   if (!updatedUser) throw new AppError("User not found", 404);
   return updatedUser;
+};
+
+export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
+  if (!username) throw new AppError("Username is required", 400);
+  
+  const existingUser = await User.findOne({ username });
+  return !existingUser;
 };

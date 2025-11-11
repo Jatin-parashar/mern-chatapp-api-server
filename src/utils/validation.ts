@@ -34,6 +34,18 @@ const passwordSchema = Joi.string()
     "any.required": "Password is required",
   });
 
+const usernameSchema = Joi.string()
+  .min(3)
+  .max(20)
+  .pattern(/^[a-z0-9._]+$/)
+  .required()
+  .messages({
+    "string.min": "Username must be at least 3 characters long",
+    "string.max": "Username cannot exceed 20 characters",
+    "string.pattern.base": "Username can only contain lowercase letters, numbers, dots, and underscores",
+    "any.required": "Username is required",
+  });
+
 type Validator = (value: string) => Joi.ValidationResult;
 
 export const validateName = (name: string): Joi.ValidationResult => {
@@ -46,6 +58,10 @@ export const validateEmail = (email: string): Joi.ValidationResult => {
 
 export const validatePassword = (password: string): Joi.ValidationResult => {
   return passwordSchema.validate(password);
+};
+
+export const validateUsername = (username: string): Joi.ValidationResult => {
+  return usernameSchema.validate(username);
 };
 
 export const validateField = (value: string, validator: Validator): void => {

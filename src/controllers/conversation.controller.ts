@@ -7,6 +7,8 @@ import {
   handleConversationCreation,
 } from "../services/conversation.service.js";
 import { AuthRequest } from "../types/express.js";
+import Conversation from "../models/conversation.model.js";
+import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
 
 export const createConversation = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -33,11 +35,18 @@ export const createConversation = catchAsync(
 
 export const getUserConversations = catchAsync(
   async (req: AuthRequest, res: Response) => {
-    const conversations = await fetchUserConversations(req.user!._id);
+    const { limit, skip } = parsePaginationParams(
+      req.query.limit as string,
+      req.query.skip as string
+    );
 
-    sendSuccessResponse(res, 200, "User conversations fetched successfully", {
-      conversations,
-    });
+    const [conversations, total] = await Promise.all([
+      fetchUserConversations(req.user!._id, limit, skip),
+      Conversation.countDocuments({ participants: req.user!._id })
+    ]);
+
+    const result = createPaginationResult(conversations, total, limit, skip);
+    sendSuccessResponse(res, 200, "User conversations fetched successfully", result);
   }
 );
 

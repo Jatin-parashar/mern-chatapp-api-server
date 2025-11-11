@@ -121,12 +121,23 @@ export const handleConversationCreation = async ({
 };
 
 export const fetchUserConversations = async (
-  userId: string | Types.ObjectId
+  userId: string | Types.ObjectId,
+  limit?: number,
+  skip?: number
 ): Promise<ConversationWithPopulatedFields[]> => {
-  return await Conversation.find({ participants: userId })
+  let query = Conversation.find({ participants: userId })
     .populate(conversationPopulateOptions)
-    .sort({ updatedAt: -1 })
-    .lean<ConversationWithPopulatedFields[]>();
+    .sort({ updatedAt: -1 });
+
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
+  if (skip !== undefined) {
+    query = query.skip(skip);
+  }
+
+  return await query.lean<ConversationWithPopulatedFields[]>();
 };
 
 export const fetchUserConversationsById = async (

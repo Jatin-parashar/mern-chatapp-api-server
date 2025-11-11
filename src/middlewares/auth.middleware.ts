@@ -23,7 +23,10 @@ export default (req: AuthRequest, res: Response, next: NextFunction): void => {
   const accessToken = authFragments[1];
   try {
     const user = validateAccessToken(accessToken) as JwtPayload;
-    req.user = user as { email: string; _id: string };
+    req.user = {
+      _id: user._id,
+      email: user.email
+    }
     next();
   } catch (error) {
     throw new AppError("Invalid Token", 401);

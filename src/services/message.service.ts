@@ -6,7 +6,6 @@ import { messagePopulateOptions } from "../utils/populateOptions.js";
 import { validateUserBelongsToConversation } from "./conversation.service.js";
 import { toString } from "../utils/common.js";
 import logger from "../utils/logger.js";
-import { IMessage } from "../types/models.js";
 import { MessageWithPopulatedFields } from "../types/service.js";
 
 interface MessageData {
@@ -118,15 +117,25 @@ export const createMessageInConversation = async (
 };
 
 export const fetchMessagesByConversationId = async (
-  conversationId: string | Types.ObjectId
+  conversationId: string | Types.ObjectId,
+  limit?: number,
+  skip?: number
 ): Promise<MessageWithPopulatedFields[]> => {
   validateConversationId(conversationId);
 
-  const messages = await Message.find({ conversationId })
+  let query = Message.find({ conversationId })
     .populate(messagePopulateOptions)
-    .sort({ createdAt: 1 })
-    .lean<MessageWithPopulatedFields[]>();
+    .sort({ createdAt: 1 });
 
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
+  if (skip !== undefined) {
+    query = query.skip(skip);
+  }
+
+  const messages = await query.lean<MessageWithPopulatedFields[]>();
   return messages;
 };
 

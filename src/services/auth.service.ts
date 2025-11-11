@@ -1,4 +1,3 @@
-import { Types } from "mongoose";
 import User from "../models/user.model.js";
 import AuthCredential from "../models/auth.model.js";
 import AppError from "../utils/appError.js";
@@ -8,6 +7,7 @@ import {
   validateField,
   validateName,
   validatePassword,
+  validateUsername,
 } from "../utils/validation.js";
 import { UserPayload } from "../types/user.js";
 
@@ -19,17 +19,23 @@ export const createUser = async (
   status?: string,
   profilePic?: string
 ): Promise<UserPayload> => {
-  if (!name || !email || !password) {
-    throw new AppError("All fields are required", 400);
+  if (!name || !email || !username || !password) {
+    throw new AppError("All required fields must be provided", 400);
   }
 
   validateField(name, validateName);
   validateField(email, validateEmail);
+  validateField(username, validateUsername);
   validateField(password, validatePassword);
 
   const existingUser = await AuthCredential.findOne({ email });
   if (existingUser) {
     throw new AppError("Email already in use", 400);
+  }
+
+  const existingUsername = await User.findOne({ username});
+  if (existingUsername) {
+    throw new AppError("Username already taken", 400);
   }
 
   const hashedPassword = await hashPassword(password);
