@@ -3,18 +3,28 @@ import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import { getUserCallHistory, getCallById as getCall } from "../services/call.service.js";
 import { AuthRequest } from "../types/express.js";
+import Call from "../models/call.model.js";
+import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
 
 /**
  * Get call history for the authenticated user
  */
 export const getCallHistory = catchAsync(async (req: AuthRequest, res: Response) => {
-  const limit = parseInt(req.query.limit as string) || 50;
-  const calls = await getUserCallHistory(req.user!._id, limit);
+  const { limit, skip } = parsePaginationParams(
+    req.query.limit as string,
+    req.query.skip as string
+  );
 
-  sendSuccessResponse(res, 200, "Call history fetched successfully", {
-    calls,
-    count: calls.length,
-  });
+  const [calls, total] = await Promise.all([
+    getUserCallHistory(req.user!._id, limit, skip),
+    Call.countDocuments({
+      $or: [{ caller: req.user!._id }, { receiver: req.user!._id }],
+      status: { $in: ["ended", "declined", "missed"] },
+    })
+  ]);
+
+  const result = createPaginationResult(calls, total, limit, skip);
+  sendSuccessResponse(res, 200, "Call history fetched successfully", result);
 });
 
 /**

@@ -73,17 +73,26 @@ export const updateCallStatus = async (
 
 export const getUserCallHistory = async (
   userId: string | Types.ObjectId,
-  limit: number = 50
+  limit?: number,
+  skip?: number
 ): Promise<CallWithPopulatedUsers[]> => {
-  return await Call.find({
+  let query = Call.find({
     $or: [{ caller: userId }, { receiver: userId }],
     status: { $in: ["ended", "declined", "missed"] },
   })
     .populate("caller", "name username profilePic")
     .populate("receiver", "name username profilePic")
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean<CallWithPopulatedUsers[]>();
+    .sort({ createdAt: -1 });
+
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
+  if (skip !== undefined) {
+    query = query.skip(skip);
+  }
+
+  return await query.lean<CallWithPopulatedUsers[]>();
 };
 
 export const markCallAsMissed = async (

@@ -8,6 +8,7 @@ import {
 import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import { AuthRequest } from "../types/express.js";
+import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
 
 export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) => {
   const { conversationId, content, attachments, messageType, replyTo } = req.body;
@@ -30,19 +31,18 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
 
 export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const limit = parseInt(req.query.limit as string) || 50;
-  const skip = parseInt(req.query.skip as string) || 0;
+  const { limit, skip } = parsePaginationParams(
+    req.query.limit as string,
+    req.query.skip as string
+  );
 
   const [messages, total] = await Promise.all([
     fetchMessagesByConversationId(id, limit, skip),
     Message.countDocuments({ conversationId: id })
   ]);
 
-  sendSuccessResponse(res, 200, "Messages fetched successfully", {
-    messages,
-    count: messages.length,
-    total,
-  });
+  const result = createPaginationResult(messages, total, limit, skip);
+  sendSuccessResponse(res, 200, "Messages fetched successfully", result);
 });
 
 export const markConversationMessagesSeen = catchAsync(async (req: AuthRequest, res: Response) => {
