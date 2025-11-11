@@ -34,3 +34,10 @@ export const updateUserStatus = async (
   if (!updatedUser) throw new AppError("User not found", 404);
   return updatedUser;
 };
+
+export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
+  if (!username) throw new AppError("Username is required", 400);
+  
+  const existingUser = await User.findOne({ username });
+  return !existingUser;
+};

@@ -13,9 +13,8 @@ import { AuthFileRequest } from "../types/express.js";
 
 export const register = catchAsync(
   async (req: AuthFileRequest, res: Response) => {
-    const { name, email, password, status } = req.body;
+    const { name, email, username, password, status } = req.body;
     const profilePic = req.file?.path;
-    const username = email.split("@")[0];
 
     const createdUser = await createUser(
       name,

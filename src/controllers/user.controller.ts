@@ -1,5 +1,6 @@
 import { Response } from "express";
 import {
+  checkUsernameAvailability,
   findAllUsers,
   findUserById,
   searchUsers,
@@ -8,6 +9,7 @@ import {
 import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import { AuthRequest } from "../types/express.js";
+import AppError from "../utils/appError.js";
 
 export const getCurrentUser = catchAsync(async (req: AuthRequest, res: Response) => {
   const user = await findUserById(req.user!._id);
@@ -32,4 +34,14 @@ export const searchUsersByKeyword = catchAsync(async (req: AuthRequest, res: Res
 export const updateUserInfo = catchAsync(async (req: AuthRequest, res: Response) => {
   const updatedUser = await updateUserStatus(req.user!._id, req.body.status);
   sendSuccessResponse(res, 200, "User updated successfully", { updatedUser });
+});
+
+export const checkUsername = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { username } = req.query;
+  if (!username || typeof username !== 'string') {
+    throw new AppError("Username is required", 400);
+  }
+  
+  const available = await checkUsernameAvailability(username);
+  sendSuccessResponse(res, 200, "Username availability checked", { available });
 });
