@@ -14,6 +14,7 @@ import globalErrorHandler from "./middlewares/error.middleware.js";
 import AppError from "./utils/appError.js";
 import { PORT } from "./config/envConfig.js";
 import { apiLimiter } from "./middlewares/rateLimit.middleware.js";
+import { requestLogger } from "./middlewares/requestLogger.middleware.js";
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (err) => {
@@ -66,6 +67,8 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+
+app.use(requestLogger);
 
 // Initialize configurations
 cloudinaryConfig();

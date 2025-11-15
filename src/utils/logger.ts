@@ -18,38 +18,97 @@
  * @module logger
  */
 
-/** Pino logging library for structured logging */
 import pino from "pino";
+import { NODE_ENV } from "../config/envConfig.js";
 
-/** Environment check for development mode */
-const isDevelopment = process.env.NODE_ENV === "development";
+const isDevelopment = NODE_ENV === "development";
 
-/** Pino transport configuration for pretty printing in development */
-const transport = isDevelopment
-  ? pino.transport({
-      target: "pino-pretty",
-      options: {
-        colorize: true,
-        translateTime: "SYS:standard",
-        ignore: "pid,hostname",
-      },
-    })
-  : undefined;
-
-/** Log level based on environment - debug for development, info for production */
-const logLevel = isDevelopment ? "debug" : "info";
-
-/** Main logger instance configured with environment-specific settings */
-const logger = pino(
-  {
-    level: logLevel,
+// Production logger - JSON with human-readable fields
+const productionLogger = pino({
+  level: "info",
+  formatters: {
+    level: (label) => {
+      return { level: label.toUpperCase() };
+    },
+    bindings: (bindings) => {
+      return {
+        pid: bindings.pid,
+        // Remove useless hostname in production
+      };
+    },
   },
-  transport
+  timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+  base: {
+    env: NODE_ENV,
+  },
+});
+
+// Development logger - pretty and colorful
+const developmentLogger = pino(
+  {
+    level: "debug",
+    formatters: {
+      level: (label) => {
+        return { level: label.toUpperCase() };
+      },
+    },
+    timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+  },
+  pino.transport({
+    target: "pino-pretty",
+    options: {
+      colorize: true,
+      translateTime: "yyyy-mm-dd HH:MM:ss.l",
+      ignore: "pid,hostname",
+      messageFormat: "{msg}",
+      singleLine: true,
+    },
+  })
 );
+
+const logger = isDevelopment ? developmentLogger : productionLogger;
 
 export default logger;
 
 /**
+ * Usage Examples:
+ * 
+ * // Simple logging
+ * logger.info('User logged in');
+ * 
+ * // With structured context
+ * logger.info({ userId: '123', action: 'login' }, 'User logged in');
+ * 
+ * // Error logging
+ * logger.error({ err: error, userId: '123' }, 'Failed to process request');
+ * 
+ * // Request logging (use the middleware below)
+ * logger.info({ 
+ *   requestId: 'req-123', 
+ *   method: 'POST', 
+ *   path: '/api/messages',
+ *   userId: '456'
+ * }, 'Request completed');
+
+ * Usage Examples:
+ * 
+ * // Simple logging
+ * logger.info('User logged in');
+ * 
+ * // With structured context
+ * logger.info({ userId: '123', action: 'login' }, 'User logged in');
+ * 
+ * // Error logging
+ * logger.error({ err: error, userId: '123' }, 'Failed to process request');
+ * 
+ * // Request logging (use the middleware below)
+ * logger.info({ 
+ *   requestId: 'req-123', 
+ *   method: 'POST', 
+ *   path: '/api/messages',
+ *   userId: '456'
+ * }, 'Request completed');
+ * 
  * Log Levels Description:
  *
  * Each log level corresponds to a different level of severity. Logs are filtered based on the level set in

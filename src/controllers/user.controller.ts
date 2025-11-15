@@ -60,7 +60,7 @@ export const updateUserInfo = catchAsync(async (req: AuthRequest, res: Response)
 });
 
 export const checkUsername = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { username } = req.query;
+  const { username } = req.params;
   if (!username || typeof username !== 'string') {
     throw new AppError("Username is required", 400);
   }
