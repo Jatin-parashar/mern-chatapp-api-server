@@ -77,7 +77,7 @@ cloudinaryConfig();
 connectDB();
 
 // Routes
-app.use("/api/v1", apiLimiter, routes);
+app.use("/api/v1", /* apiLimiter, */ routes);
 
 // Handle undefined routes
 app.all("/{*any}", (req, res, next) => {

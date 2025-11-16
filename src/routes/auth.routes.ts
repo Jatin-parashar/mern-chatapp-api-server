@@ -13,8 +13,8 @@ const router = Router();
 
 router
   .route("/register")
-  .post(authLimiter, upload.single("profilePic"), register);
-router.route("/login").post(authLimiter, login);
+  .post(/* authLimiter, */ upload.single("profilePic"), register);
+router.route("/login").post(/* authLimiter, */ login);
 router.route("/logout").post(authMiddleware, logout);
 router.route("/refreshToken").post(refreshToken);
 router.route("/check-username/:username").get(checkUsername);

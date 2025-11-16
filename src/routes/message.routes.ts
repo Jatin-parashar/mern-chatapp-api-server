@@ -13,7 +13,7 @@ const router = Router();
 
 // Send message (with optional file attachments)
 router.route("/").post(
-  messageLimiter,
+  /* messageLimiter, */
   upload.array("files", 10), 
   processUploadedFiles, 
   sendMessage
