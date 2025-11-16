@@ -76,6 +76,30 @@ app.use(requestLogger);
 cloudinaryConfig();
 connectDB();
 
+// Root route
+app.get("/", (req, res) => {
+  res.json({
+    message: "ChatApp API - Real-time messaging and video calling service",
+    status: "active",
+    features: [
+      "User authentication & registration",
+      "Real-time messaging with Socket.IO",
+      "Video & voice calling",
+      "File sharing & media uploads",
+      "User presence & typing indicators",
+      "Conversation management"
+    ],
+    endpoints: {
+      auth: "/api/v1/auth",
+      users: "/api/v1/users",
+      conversations: "/api/v1/conversations",
+      messages: "/api/v1/messages",
+      calls: "/api/v1/calls",
+      health: "/api/v1/health"
+    }
+  });
+});
+
 // Routes
 app.use("/api/v1", /* apiLimiter, */ routes);
 
