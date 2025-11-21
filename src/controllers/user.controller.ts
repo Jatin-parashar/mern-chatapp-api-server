@@ -47,7 +47,12 @@ export const searchUsersByKeyword = catchAsync(async (req: AuthRequest, res: Res
 
   const [users, total] = await Promise.all([
     searchUsers(keyword, limit, skip),
-    User.countDocuments({ name: { $regex: keyword, $options: "i" } })
+    User.countDocuments({
+      $or: [
+        { name: { $regex: keyword, $options: "i" } },
+        { username: { $regex: keyword, $options: "i" } },
+      ],
+    })
   ]);
 
   const result = createPaginationResult(users, total, limit, skip);

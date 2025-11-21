@@ -9,7 +9,7 @@ const userSchema = new Schema<IUser>(
       required: true,
     },
     name: { type: String, required: true },
-    username: { type: String, required: true },
+    username: { type: String, required: true, unique: true },
     profilePic: { type: String, default: "" },
     status: { type: String, default: "Hey there! I am using ChatApp" },
   },
@@ -17,6 +17,9 @@ const userSchema = new Schema<IUser>(
     timestamps: true,
   }
 );
+
+userSchema.index({ username: 1 });
+userSchema.index({ name: 1 });
 
 const User = mongoose.models.User || model("User", userSchema);
 export default User;

@@ -32,7 +32,10 @@ export const searchUsers = async (
   skip?: number
 ): Promise<IUser[]> => {
   let query = User.find({
-    name: { $regex: keyword, $options: "i" },
+    $or: [
+      { name: { $regex: keyword, $options: "i" } },
+      { username: { $regex: keyword, $options: "i" } },
+    ],
   });
 
   if (limit !== undefined) {
