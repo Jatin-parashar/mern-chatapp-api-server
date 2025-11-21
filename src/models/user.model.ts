@@ -18,7 +18,6 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-userSchema.index({ username: 1 });
 userSchema.index({ name: 1 });
 
 const User = mongoose.models.User || model("User", userSchema);
