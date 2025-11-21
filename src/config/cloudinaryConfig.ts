@@ -91,7 +91,7 @@ export const deleteFromCloudinary = async (
     });
     return true;
   } catch (error) {
-    logger.error(error, "Error deleting from Cloudinary");
+    logger.error({ err: error }, "Error deleting from Cloudinary");
     return false;
   }
 };

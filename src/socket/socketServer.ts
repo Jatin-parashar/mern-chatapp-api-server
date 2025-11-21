@@ -22,7 +22,7 @@ import { registerChatHandlers } from "./handlers/chat.handlers.js";
 import { registerTypingHandlers } from "./handlers/typing.handlers.js";
 import { registerCallHandlers } from "./handlers/call.handlers.js";
 import { updateCallStatus } from "../services/call.service.js";
-import { authenticateSocket } from "./utils/socketAuth.js";
+import { authenticateSocket, CustomSocket } from "./utils/socketAuth.js";
 import type { Server as HTTPServer } from "http";
 
 /**
@@ -44,20 +44,23 @@ export const initSocketServer = (server: HTTPServer): Server => {
   io.use(authenticateSocket);
 
   io.on(SOCKET_CONNECTION, (socket: Socket) => {
-    logger.debug(`User connected: ${socket.id}`);
+    // Cast to CustomSocket after authentication
+    const customSocket = socket as CustomSocket;
+    
+    logger.debug(`User connected: ${customSocket.id} (user: ${customSocket.userId})`);
 
     // Register all event handlers
-    registerPresenceHandlers(io, socket);
-    registerChatHandlers(io, socket);
-    registerTypingHandlers(io, socket);
-    registerCallHandlers(io, socket);
+    registerPresenceHandlers(io, customSocket);
+    registerChatHandlers(io, customSocket);
+    registerTypingHandlers(io, customSocket);
+    registerCallHandlers(io, customSocket);
 
     // Handle socket disconnection
-    socket.on(SOCKET_DISCONNECT, async (): Promise<void> => {
-      logger.debug(`User disconnected: ${socket.id}`);
+    customSocket.on(SOCKET_DISCONNECT, async (): Promise<void> => {
+      logger.debug(`User disconnected: ${customSocket.id} (user: ${customSocket.userId})`);
 
       // Handle active calls cleanup
-      const callInfo = findCallBySocketId(socket.id);
+      const callInfo = findCallBySocketId(customSocket.id);
       if (callInfo) {
         const { callId, call } = callInfo;
         logger.debug(`Cleaning up call ${callId} due to disconnect`);
@@ -71,7 +74,7 @@ export const initSocketServer = (server: HTTPServer): Server => {
 
           // THEN notify the other participant
           const otherUserId =
-            call.callerSocketId === socket.id ? call.receiver : call.caller;
+            call.callerSocketId === customSocket.id ? call.receiver : call.caller;
           emitToUser(io, otherUserId, SOCKET_CALL_PEER_DISCONNECTED, {
             callId,
           });
@@ -87,7 +90,7 @@ export const initSocketServer = (server: HTTPServer): Server => {
       }
 
       // Handle online users cleanup
-      const removedUserId: string | undefined = removeUserSocket(socket.id);
+      removeUserSocket(customSocket.id);
 
       const onlineUserIds: string[] = getOnlineUserIds();
       if (onlineUserIds.length === 0) {

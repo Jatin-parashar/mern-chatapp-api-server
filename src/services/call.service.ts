@@ -23,7 +23,7 @@ export const createCall = async (
     logger.debug(`Call created in DB: ${callId}`);
     return call;
   } catch (error) {
-    logger.error({ error }, `Failed to create call ${callId}`);
+    logger.error({ err: error }, `Failed to create call ${callId}`);
     throw error;
   }
 };
@@ -66,7 +66,7 @@ export const updateCallStatus = async (
 
     return call;
   } catch (error) {
-    logger.error({ error }, `Failed to update call ${callId}`);
+    logger.error({ err: error }, `Failed to update call ${callId}`);
     throw error;
   }
 };

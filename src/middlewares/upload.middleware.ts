@@ -72,7 +72,7 @@ export const processUploadedFiles = (
 
     next();
   } catch (error) {
-    logger.error({ error }, "Error processing uploaded files");
+    logger.error({ err: error }, "Error processing uploaded files");
     next(new AppError("Failed to process uploaded files", 500));
   }
 };

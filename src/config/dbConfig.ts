@@ -10,8 +10,8 @@ export async function connectDB() {
       socketTimeoutMS: 45000,
     });
     logger.info("Connected to MongoDB with connection pooling");
-  } catch (err) {
-    logger.error(err, "Connection to MongoDB database failed!");
+  } catch (error) {
+    logger.error({ err: error }, "Connection to MongoDB database failed!");
     process.exit(1);
   }
 }

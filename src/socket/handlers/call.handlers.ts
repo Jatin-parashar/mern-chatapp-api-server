@@ -1,4 +1,4 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io";
 import {
   SOCKET_CALL_INITIATED,
   SOCKET_CALL_RECEIVED,
@@ -14,13 +14,13 @@ import {
   getActiveCall,
   updateActiveCall,
   removeActiveCall,
-  getUserSocketIds,
 } from "../utils/socketHelpers.js";
 import {
   createCall,
   updateCallStatus,
   markCallAsMissed,
 } from "../../services/call.service.js";
+import { CustomSocket } from "../utils/socketAuth.js";
 
 interface CallerInfo {
   _id: string;
@@ -59,7 +59,7 @@ interface CallSignalEventData {
 /**
  * Handle WebRTC call signaling and management
  */
-export const registerCallHandlers = (io: Server, socket: Socket): void => {
+export const registerCallHandlers = (io: Server, socket: CustomSocket): void => {
   // Handle call initiation
   socket.on(
     SOCKET_CALL_INITIATED,
@@ -70,32 +70,45 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
       isVideoCall,
       signal,
     }: CallInitiatedEventData): Promise<void> => {
-      if (!callId || !receiverId || !callerInfo) {
-        logger.warn("Call initiated event missing required data");
-        return;
-      }
-
-      // Validate caller isn't calling themselves
-      if (callerInfo._id === receiverId) {
-        logger.warn(`User ${callerInfo._id} attempted to call themselves`);
-        socket.emit(SOCKET_CALL_DECLINED, {
-          callId,
-          reason: "Cannot call yourself",
-        });
-        return;
-      }
-
-      logger.debug(
-        `Call initiated: ${callId} from ${callerInfo._id} to ${receiverId}`
-      );
-
       try {
+        if (!callId || !receiverId || !callerInfo) {
+          logger.warn("Call initiated event missing required data");
+          return;
+        }
+
+        // Use authenticated userId from socket
+        const callerId = socket.userId;
+
+        // Validate caller info matches authenticated user
+        if (callerInfo._id !== callerId) {
+          logger.warn(`Caller info mismatch: ${callerInfo._id} vs ${callerId}`);
+          socket.emit(SOCKET_CALL_DECLINED, {
+            callId,
+            reason: "Authentication error",
+          });
+          return;
+        }
+
+        // Validate caller isn't calling themselves
+        if (callerId === receiverId) {
+          logger.warn(`User ${callerId} attempted to call themselves`);
+          socket.emit(SOCKET_CALL_DECLINED, {
+            callId,
+            reason: "Cannot call yourself",
+          });
+          return;
+        }
+
+        logger.debug(
+          `Call initiated: ${callId} from ${callerId} to ${receiverId}`
+        );
+
         // Store call in database
-        await createCall(callId, callerInfo._id, receiverId, isVideoCall);
+        await createCall(callId, callerId, receiverId, isVideoCall);
 
         // Store in active calls map
         storeActiveCall(callId, {
-          caller: callerInfo._id,
+          caller: callerId,
           receiver: receiverId,
           isVideoCall,
           callerSocketId: socket.id,
@@ -123,7 +136,7 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
             if (call && call.status === "calling") {
               await markCallAsMissed(callId);
               removeActiveCall(callId);
-              emitToUser(io, callerInfo._id, SOCKET_CALL_DECLINED, {
+              emitToUser(io, callerId, SOCKET_CALL_DECLINED, {
                 callId,
                 reason: "offline",
               });
@@ -133,7 +146,7 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
       } catch (error) {
         logger.error(
           { err: error, callId },
-          `Failed to initiate call ${callId}`
+          `Failed to initiate call`
         );
         socket.emit(SOCKET_CALL_DECLINED, { callId, reason: "error" });
       }
@@ -144,20 +157,27 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
   socket.on(
     SOCKET_CALL_ACCEPTED,
     async ({ callId, signal }: CallAcceptedEventData): Promise<void> => {
-      if (!callId || !signal) {
-        logger.warn("Call accepted event missing required data");
-        return;
-      }
-
-      const call = getActiveCall(callId);
-      if (!call) {
-        logger.error(`Call ${callId} not found when accepting`);
-        return;
-      }
-
-      logger.debug(`Call accepted: ${callId}`);
-
       try {
+        if (!callId || !signal) {
+          logger.warn("Call accepted event missing required data");
+          return;
+        }
+
+        const call = getActiveCall(callId);
+        if (!call) {
+          logger.error(`Call ${callId} not found when accepting`);
+          return;
+        }
+
+        // Verify the user accepting is the receiver
+        const userId = socket.userId;
+        if (userId !== call.receiver) {
+          logger.warn(`Unauthorized call accept attempt by ${userId} for call ${callId}`);
+          return;
+        }
+
+        logger.debug(`Call accepted: ${callId}`);
+
         // Update call status in database
         await updateCallStatus(callId, "accepted");
 
@@ -175,7 +195,7 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
 
         logger.debug(`Call acceptance signal sent to caller: ${call.caller}`);
       } catch (error) {
-        logger.error({ err: error, callId }, `Failed to accept call ${callId}`);
+        logger.error({ err: error, callId }, `Failed to accept call`);
       }
     }
   );
@@ -184,22 +204,22 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
   socket.on(
     SOCKET_CALL_DECLINED,
     async ({ callId, reason }: CallDeclinedEventData): Promise<void> => {
-      if (!callId) {
-        logger.warn("Call declined event missing callId");
-        return;
-      }
-
-      const call = getActiveCall(callId);
-      if (!call) {
-        logger.error(`Call ${callId} not found when declining`);
-        return;
-      }
-
-      logger.debug(
-        `Call declined: ${callId}, reason: ${reason || "user declined"}`
-      );
-
       try {
+        if (!callId) {
+          logger.warn("Call declined event missing callId");
+          return;
+        }
+
+        const call = getActiveCall(callId);
+        if (!call) {
+          logger.error(`Call ${callId} not found when declining`);
+          return;
+        }
+
+        logger.debug(
+          `Call declined: ${callId}, reason: ${reason || "user declined"}`
+        );
+
         // Update call status in database
         await updateCallStatus(callId, "declined");
 
@@ -212,7 +232,7 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
       } catch (error) {
         logger.error(
           { err: error, callId },
-          `Failed to decline call ${callId}`
+          `Failed to decline call`
         );
       }
     }
@@ -222,20 +242,20 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
   socket.on(
     SOCKET_CALL_ENDED,
     async ({ callId }: CallEndedEventData): Promise<void> => {
-      if (!callId) {
-        logger.warn("Call ended event missing callId");
-        return;
-      }
-
-      const call = getActiveCall(callId);
-      if (!call) {
-        logger.error(`Call ${callId} not found when ending`);
-        return;
-      }
-
-      logger.debug(`Call ended: ${callId}`);
-
       try {
+        if (!callId) {
+          logger.warn("Call ended event missing callId");
+          return;
+        }
+
+        const call = getActiveCall(callId);
+        if (!call) {
+          logger.error(`Call ${callId} not found when ending`);
+          return;
+        }
+
+        logger.debug(`Call ended: ${callId}`);
+
         // Update call status in database (will calculate duration)
         await updateCallStatus(callId, "ended");
 
@@ -247,7 +267,7 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
         removeActiveCall(callId);
         logger.debug(`Call ${callId} cleaned up after end`);
       } catch (error) {
-        logger.error({ err: error, callId }, `Failed to end call ${callId}`);
+        logger.error({ err: error, callId }, `Failed to end call`);
       }
     }
   );
@@ -256,28 +276,32 @@ export const registerCallHandlers = (io: Server, socket: Socket): void => {
   socket.on(
     SOCKET_CALL_SIGNAL,
     ({ callId, signal }: CallSignalEventData): void => {
-      if (!callId || !signal) {
-        logger.warn("Call signal event missing required data");
-        return;
+      try {
+        if (!callId || !signal) {
+          logger.warn("Call signal event missing required data");
+          return;
+        }
+
+        const call = getActiveCall(callId);
+        if (!call) {
+          logger.error(`Call ${callId} not found when signaling`);
+          return;
+        }
+
+        // Determine who to send the signal to
+        const isFromCaller = socket.id === call.callerSocketId;
+        const targetUserId = isFromCaller ? call.receiver : call.caller;
+
+        logger.debug(`Forwarding signal for call ${callId} to ${targetUserId}`);
+
+        // Forward signal to the other participant
+        emitToUser(io, targetUserId, SOCKET_CALL_SIGNAL, {
+          callId,
+          signal,
+        });
+      } catch (error) {
+        logger.error({ err: error }, "Error handling call signal");
       }
-
-      const call = getActiveCall(callId);
-      if (!call) {
-        logger.error(`Call ${callId} not found when signaling`);
-        return;
-      }
-
-      // Determine who to send the signal to
-      const isFromCaller = socket.id === call.callerSocketId;
-      const targetUserId = isFromCaller ? call.receiver : call.caller;
-
-      logger.debug(`Forwarding signal for call ${callId} to ${targetUserId}`);
-
-      // Forward signal to the other participant
-      emitToUser(io, targetUserId, SOCKET_CALL_SIGNAL, {
-        callId,
-        signal,
-      });
     }
   );
 };
