@@ -5,7 +5,7 @@ import {
   SOCKET_ONLINE_USERS,
   SOCKET_CALL_PEER_DISCONNECTED,
   SOCKET_CALL_ENDED,
-} from "../constants/socketConstants.js";
+} from "./utils/socketConstants.js";
 import logger from "../utils/logger.js";
 import {
   removeUserSocket,

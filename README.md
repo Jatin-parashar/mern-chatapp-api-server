@@ -1,339 +1,1147 @@
-# Chat App Server
+# 💬 Chat App Server
 
-A real-time chat application server built with Node.js, Express, Socket.IO, and MongoDB. Features include messaging, file sharing, voice/video calling, and user presence management.
+> A modern, production-ready real-time chat server that actually works. Built with the good stuff: Node.js, TypeScript, Socket.IO, and MongoDB.
 
-## Features
+**What makes this special?** It's not just another chat app. This server handles everything from instant messaging to WebRTC video calls, with proper authentication, file uploads, and all the real-time features you'd expect from a modern chat platform. Think WhatsApp or Discord, but you own the code.
 
-- **Real-time Messaging** - Instant message delivery with Socket.IO
-- **File Sharing** - Upload and share images, documents via Cloudinary
-- **Voice/Video Calls** - WebRTC signaling for peer-to-peer calls
-- **User Authentication** - JWT-based auth with refresh tokens
-- **Online Presence** - Real-time user status tracking
-- **Message Read Receipts** - Track message delivery and read status
-- **Typing Indicators** - Show when users are typing
-- **Call History** - Persistent call records with duration tracking
-- **Group Chats** - Multi-participant conversations
-- **Security** - Helmet, CORS, input validation, rate limiting
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-16+-green)](https://nodejs.org/)
+[![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8-black)](https://socket.io/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-8.13-green)](https://www.mongodb.com/)
 
-## Tech Stack
+## ✨ Features
 
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Database**: MongoDB with Mongoose
-- **Real-time**: Socket.IO
-- **Authentication**: JWT (jsonwebtoken)
-- **File Upload**: Multer + Cloudinary
-- **Security**: Helmet, CORS
-- **Logging**: Pino
-- **Environment**: dotenv
+This isn't your basic CRUD app. Here's what makes it powerful:
 
-## Prerequisites
+### 💬 Messaging
+- **Real-time messaging** - Messages appear instantly, no refresh needed
+- **File sharing** - Send images, videos, documents (up to 10 files at once)
+- **Message replies** - Quote and reply to specific messages
+- **Read receipts** - See who's read your messages (those double check marks)
+- **Typing indicators** - "John is typing..." you know the drill
+- **Group chats** - Create groups with multiple participants
 
-- Node.js (v16 or higher)
-- MongoDB (local or cloud instance)
-- Cloudinary account (for file uploads)
+### 📞 Voice & Video Calls
+- **WebRTC calling** - Peer-to-peer audio and video calls
+- **Call history** - Track all your calls with duration
+- **Missed call detection** - Automatic timeout handling
+- **Multi-device support** - Take calls on any device
 
-## Installation
+### 👥 User Management
+- **JWT authentication** - Secure token-based auth with refresh tokens
+- **User profiles** - Profile pictures, status messages, the works
+- **User search** - Find people by name or username
+- **Online presence** - See who's online in real-time
 
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### 🔒 Security (Because we care)
+- **Password hashing** - bcrypt with proper salting
+- **Rate limiting** - Stop those brute force attacks
+- **Input validation** - Joi schemas for everything
+- **Security headers** - Helmet configured properly
+- **CORS protection** - Only your frontend can talk to this
 
-2. **Environment Setup**
-   Create a `.env` file in the root directory and configure the required environment variables (see Environment Variables section below).
+## 🛠️ Tech Stack
 
-## Environment Variables
+We picked the best tools for the job:
 
-Create a `.env` file with the following configuration:
+**Core**
+- **Node.js** - Because JavaScript everywhere
+- **TypeScript** - Type safety saves lives (and bugs)
+- **Express.js** - The classic, battle-tested web framework
+- **MongoDB** - Flexible NoSQL for our data
+- **Socket.IO** - Real-time magic ✨
+
+**Authentication & Security**
+- **JWT** - Stateless authentication done right
+- **bcrypt** - Password hashing that actually works
+- **Helmet** - Security headers on autopilot
+- **express-rate-limit** - Keep the bad actors out
+
+**File Handling**
+- **Multer** - Multipart form data parsing
+- **Cloudinary** - Cloud storage (no server disk space wasted)
+
+**Developer Experience**
+- **Pino** - Fast, structured logging
+- **Joi** - Schema validation that makes sense
+- **tsx** - TypeScript execution without the hassle
+
+## 📋 Prerequisites
+
+Before you dive in, make sure you have:
+
+- **Node.js** (v16+) - [Download here](https://nodejs.org/)
+- **MongoDB** - Either [local install](https://www.mongodb.com/try/download/community) or [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) (free tier works great)
+- **Cloudinary account** - [Sign up free](https://cloudinary.com/) for file uploads
+- **A code editor** - VS Code recommended, but you do you
+
+That's it! No Docker, no Kubernetes, no complicated setup. Just the essentials.
+
+## 🚀 Quick Start
+
+### 1. Clone and Install
+```bash
+git clone <your-repo-url>
+cd server
+npm install
+```
+
+### 2. Set Up Environment Variables
+Create a `.env` file in the root directory. Don't skip this - the app won't work without it!
+
+```bash
+cp .env.example .env  # If you have an example file
+# Or create it manually
+```
+
+See the [Environment Variables](#-environment-variables) section below for what to put in there.
+
+### 3. Fire It Up! 🔥
+```bash
+npm run dev
+```
+
+If you see "Server running on port 3000" - you're golden! 🎉
+
+## 🔐 Environment Variables
+
+Create a `.env` file with these variables. Pro tip: Use strong secrets in production!
 
 ```env
 # Server Configuration
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
+NODE_ENV=development              # development or production
+CLIENT_URL=http://localhost:5173  # Your frontend URL (important for CORS!)
 
 # Database
-DATABASE_URI=mongodb://localhost:27017/chatAppDB
+DATABASE_URI=mongodb://localhost:27017/chatAppDB  # Local MongoDB
+# Or use MongoDB Atlas:
+# DATABASE_URI=mongodb+srv://username:password@cluster.mongodb.net/chatAppDB
 
-# JWT Configuration
-ACCESS_JWT_SECRET=your-access-token-secret
-REFRESH_JWT_SECRET=your-refresh-token-secret
+# JWT Secrets (CHANGE THESE! Use random strings)
+ACCESS_JWT_SECRET=your-super-secret-access-token-change-this-in-production
+REFRESH_JWT_SECRET=your-super-secret-refresh-token-also-change-this
 
-# Cloudinary (File Upload Service)
+# Cloudinary (Get these from your Cloudinary dashboard)
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
-CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
 ```
 
-**Environment Modes:**
-- `development` - Enables detailed logging, CORS for localhost
-- `production` - Optimized for production with security headers
+**🎯 Quick Tips:**
+- **Development mode**: Detailed logs, CORS for localhost, easier debugging
+- **Production mode**: Optimized performance, security headers, minimal logs
+- **JWT Secrets**: Use at least 32 random characters. Don't use "secret123" 😅
+- **Cloudinary**: Free tier gives you 25GB storage - plenty to start!
 
-## Running the Application
+## 🎮 Running the Application
 
 ```bash
-# Development (with auto-restart)
+# Development mode (auto-restarts on file changes)
 npm run dev
 
-# Production
+# Development with debugging (for VS Code debugger)
+npm run dev:debug
+
+# Build for production
+npm run build
+
+# Run production build
 npm start
 ```
 
-## REST API Endpoints
+**What's happening?**
+- `npm run dev` uses `tsx` to run TypeScript directly with hot reload
+- `npm run build` compiles TypeScript to JavaScript in the `dist/` folder
+- `npm start` runs the compiled code (use this in production)
 
-### Authentication
-**POST** `/api/v1/auth/register`
-- Register new user with profile picture upload
-- Body: `multipart/form-data` with name, username, password, profilePic (optional)
-- Returns: User data with JWT tokens
+Server runs on **port 3000** by default. Visit `http://localhost:3000` to see if it's alive!
 
-**POST** `/api/v1/auth/login`
-- User authentication with username and password
-- Body: `{ username, password }`
-- Returns: User data with access and refresh tokens
 
-**POST** `/api/v1/auth/logout`
-- Logout current user (requires authentication)
-- Headers: `Authorization: Bearer <token>`
-- Returns: Success message
+## 📡 REST API Endpoints
 
-**POST** `/api/v1/auth/refreshToken`
-- Refresh expired access token
-- Body: `{ refreshToken }`
-- Returns: New access token
+**Base URL:** `http://localhost:3000/api/v1`
 
-### User Management
-**GET** `/api/v1/user/me`
-- Get current authenticated user profile
-- Headers: `Authorization: Bearer <token>`
-- Returns: Current user data
+**Quick test:** Hit `GET http://localhost:3000/` to see if the server is running. You'll get a nice JSON response with all available endpoints.
 
-**GET** `/api/v1/user/all`
-- Get list of all registered users
-- Returns: Array of user profiles
+**Authentication:** Endpoints marked with 🔒 need a JWT token in the header:
+```
+Authorization: Bearer your-jwt-token-here
+```
 
-**GET** `/api/v1/user/search?keyword={search}`
-- Search users by name or username
-- Query: `keyword` - search term
-- Returns: Filtered user list
+No token? You'll get a friendly 401 Unauthorized. Get your token from the login or register endpoints first!
 
-**GET** `/api/v1/user/:id`
-- Get specific user profile by ID
-- Params: `id` - user ID
-- Returns: User profile data
+---
 
-**PATCH** `/api/v1/user/update`
-- Update current user profile information
-- Body: `{ name?, status?, profilePic? }`
-- Returns: Updated user data
+### 🔑 Authentication
 
-### Conversations
-**POST** `/api/v1/conversation`
-- Create new conversation (direct or group)
-- Query: `group=true/false`
-- Body: `{ participants: [userId1, userId2], name? }`
-- Returns: Created conversation with participant details
+The gateway to everything. Start here!
 
-**GET** `/api/v1/conversation`
-- Get all conversations for authenticated user
-- Returns: Array of conversations with latest message
+#### **POST** `/api/v1/auth/register`
+Create a new account with optional profile picture.
 
-**GET** `/api/v1/conversation/:id`
-- Get specific conversation details
-- Params: `id` - conversation ID
-- Returns: Conversation with participant information
+**Body:** `multipart/form-data`
+- `name` ✅ - Your full name
+- `email` ✅ - Email address
+- `username` ✅ - Unique username
+- `password` ✅ - Password (we'll hash it with bcrypt)
+- `profilePic` - Profile picture file (optional)
+- `status` - Status message (optional)
 
-### Messages
-**POST** `/api/v1/message`
-- Send message with optional file attachments
-- Body: `multipart/form-data` with conversationId, content, files[] (up to 10)
-- Returns: Created message with file URLs
+**Returns:** `{ user, accessToken, refreshToken }`
 
-**GET** `/api/v1/message/conversation/:id`
-- Get messages for specific conversation with pagination
-- Params: `id` - conversation ID
-- Query: `page`, `limit` (default 50)
-- Returns: Paginated message list
+**Status:** 201 Created
 
-**PATCH** `/api/v1/message/seen/conversation/:id`
-- Mark all messages in conversation as read
-- Params: `id` - conversation ID
-- Returns: Updated message read status
+---
 
-**PATCH** `/api/v1/message/seen/:id`
-- Mark specific message as read
-- Params: `id` - message ID
-- Returns: Updated message with read status
+#### **POST** `/api/v1/auth/login`
+Log in with your credentials.
 
-### Call Management
-**GET** `/api/v1/call/history`
-- Get call history for authenticated user
-- Query: `limit` (default 50)
-- Returns: Array of call records with duration and status
+**Body:** `{ email, password }`
 
-**GET** `/api/v1/call/:callId`
-- Get specific call details and metadata
-- Params: `callId` - unique call identifier
-- Returns: Call information with participants and duration
+**Returns:** `{ user, accessToken, refreshToken }`
 
-## Real-time Communication (Socket.IO)
+**Status:** 200 OK
 
-### Connection & Presence Management
-**Event:** `setup`
-- Authenticate user connection and join user-specific room
-- Payload: `{ userId }`
-- Response: User added to online users list
+---
 
-**Event:** `onlineUsers`
-- Server broadcasts list of currently online users
-- Payload: Array of online user objects with status
-- Triggered: When users connect/disconnect
+#### **POST** `/api/v1/auth/logout` 🔒
+Log out (client should discard tokens).
 
-### Real-time Messaging
-**Event:** `newMessage`
-- Send new message to conversation participants
-- Payload: `{ conversationId, content, sender }`
-- Response: Message delivered to all conversation members
+**Returns:** Success message
 
-**Event:** `messageReceived`
-- Receive new message in real-time
-- Payload: Complete message object with sender info
-- Triggered: When someone sends message to your conversation
+**Status:** 200 OK
 
-**Event:** `typing` / `stopTyping`
-- Show typing indicators to conversation participants
-- Payload: `{ conversationId, userId }`
-- Response: Other participants see typing status
+---
 
-**Event:** `messageSeen`
-- Mark message as read and notify sender
-- Payload: `{ messageId, userId }`
-- Response: Sender receives read receipt notification
+#### **POST** `/api/v1/auth/refreshToken`
+Get a new access token when yours expires.
 
-**Event:** `conversationMessageSeen`
-- Mark entire conversation as read
-- Payload: `{ conversationId, userId }`
-- Response: All participants notified of read status
+**Body:** `{ refreshToken }`
 
-## Voice & Video Calling System
+**Returns:** `{ user, accessToken }`
 
-### WebRTC Signaling Server
-The server acts as a signaling server for WebRTC peer-to-peer connections, handling call setup, management, and teardown.
+**Status:** 200 OK
 
-### Call Initiation
-**Event:** `callInitiated`
-- Start new voice or video call
-- Payload: `{ callId, receiverId, callerInfo, isVideoCall, signal }`
-- Process: Creates call record, notifies receiver, handles offline users
-- Response: Receiver gets incoming call notification
+---
 
-**Event:** `callReceived`
-- Incoming call notification to receiver
-- Payload: `{ callId, callerInfo, isVideoCall, signal }`
-- Triggered: When someone initiates call to you
-- Action: Display incoming call interface
+#### **GET** `/api/v1/auth/check-username/:username`
+Check if a username is available before registering.
 
-### Call Management
-**Event:** `callAccepted`
-- Accept incoming call and establish connection
-- Payload: `{ callId, signal }`
-- Process: Updates call status, forwards signal to caller
-- Result: WebRTC connection established between peers
+**Returns:** `{ available: boolean }`
 
-**Event:** `callDeclined`
-- Decline incoming call
-- Payload: `{ callId, reason }`
-- Process: Updates call status to declined, notifies caller
-- Result: Call terminated, caller receives decline notification
+**Status:** 200 OK
 
-**Event:** `callEnded`
-- End active call session
-- Payload: `{ callId }`
-- Process: Updates call duration, notifies all participants
-- Result: Call terminated, resources cleaned up
+---
 
-### WebRTC Signal Exchange
-**Event:** `callSignal`
-- Exchange WebRTC signaling data (ICE candidates, offers, answers)
-- Payload: `{ callId, signal }`
-- Process: Forwards signaling data between call participants
-- Purpose: Establish direct peer-to-peer connection
+### 👤 User Management
 
-**Event:** `callPeerDisconnected`
-- Handle unexpected peer disconnection
-- Payload: `{ callId }`
-- Triggered: When participant loses connection
-- Action: Cleanup call, notify remaining participants
+All about users - profiles, search, updates.
 
-### Call Features
-- **Audio Calls**: Voice-only communication with mute/unmute
-- **Video Calls**: Audio + video with camera on/off controls
-- **Call History**: Persistent storage of call records with duration
-- **Missed Calls**: Automatic detection and notification of missed calls
-- **Call Status**: Real-time status updates (calling, ringing, connected, ended)
-- **Offline Handling**: Graceful handling of offline users with timeout
-- **Connection Recovery**: Automatic cleanup on unexpected disconnections
+#### **GET** `/api/v1/user/me` 🔒
+Get your own profile.
 
-## Core Libraries
+**Returns:** Current user data
 
-- **Express.js** - Web framework for REST APIs
-- **Socket.IO** - Real-time bidirectional communication
-- **Mongoose** - MongoDB object modeling
-- **jsonwebtoken** - JWT authentication
-- **Multer + Cloudinary** - File upload and storage
-- **Helmet** - Security middleware
-- **Pino** - High-performance logging
-- **bcryptjs** - Password hashing
+**Status:** 200 OK
 
-## Key Features
+---
 
-### 🔐 Authentication & Security
-- JWT-based authentication with refresh tokens
-- Secure password hashing with bcrypt
-- Protected routes with middleware
-- CORS and security headers
+#### **GET** `/api/v1/user/all` 🔒
+Get all registered users (for finding people to chat with).
+
+**Returns:** Array of user profiles (passwords excluded, obviously)
+
+**Status:** 200 OK
+
+---
+
+#### **GET** `/api/v1/user/search?keyword={search}` 🔒
+Search for users by name or username.
+
+**Query:** `keyword` - Search term (case-insensitive)
+
+**Returns:** Filtered user list
+
+**Status:** 200 OK
+
+---
+
+#### **GET** `/api/v1/user/:id` 🔒
+Get a specific user's profile.
+
+**Params:** `id` - User's MongoDB ObjectId
+
+**Returns:** User profile data
+
+**Status:** 200 OK
+
+---
+
+#### **PATCH** `/api/v1/user/update` 🔒
+Update your profile.
+
+**Body:** `{ name?, status?, profilePic? }` (all optional)
+
+**Returns:** Updated user data
+
+**Status:** 200 OK
+
+---
+
+### 💭 Conversations
+
+Create and manage chats (both direct and group).
+
+#### **POST** `/api/v1/conversation` 🔒
+Start a new conversation or group chat.
+
+**Query:** `isGroup=true` for groups, omit for direct messages
+
+**Body:**
+- `participants` ✅ - Array of user IDs (don't include yourself)
+- `name` - Group name (required if isGroup=true)
+
+**Smart behavior:** For direct chats, if a conversation already exists between you two, we'll return that instead of creating a duplicate.
+
+**Returns:** `{ conversation }` with participant details
+
+**Status:** 201 Created (new) or 200 OK (existing)
+
+---
+
+#### **GET** `/api/v1/conversation` 🔒
+Get all your conversations with pagination.
+
+**Query:**
+- `limit` - Conversations per page (default: 50)
+- `skip` - Skip this many (default: 0)
+
+**Returns:** `{ data: [...conversations], total, limit, skip, hasMore }`
+
+Each conversation includes participants, latest message, and timestamps.
+
+**Status:** 200 OK
+
+---
+
+#### **GET** `/api/v1/conversation/:id` 🔒
+Get details of a specific conversation.
+
+**Params:** `id` - Conversation ID
+
+**Security:** You must be a participant to access this.
+
+**Returns:** `{ conversation }` with full details
+
+**Status:** 200 OK
+
+---
+
+### 📨 Messages
+
+The heart of the chat app - sending and receiving messages.
+
+#### **POST** `/api/v1/message` 🔒
+Send a message with optional file attachments.
+
+**Body:** `multipart/form-data`
+- `conversationId` ✅ - Which conversation
+- `content` - Text message (optional if you're sending files)
+- `files[]` - Up to 10 files (images, videos, documents)
+- `messageType` - Auto-detected from file type
+- `replyTo` - Message ID you're replying to (optional)
+
+**Magic:** We automatically detect message type from MIME types (image, video, audio, document, file).
+
+**Returns:** `{ message }` with file URLs from Cloudinary
+
+**Status:** 201 Created
+
+**Pro tip:** After sending, emit a `newMessage` socket event for real-time delivery!
+
+---
+
+#### **GET** `/api/v1/message/conversation/:id` 🔒
+Get messages from a conversation.
+
+**Params:** `id` - Conversation ID
+
+**Query:**
+- `limit` - Messages per page (default: 50)
+- `skip` - Skip this many (default: 0)
+
+**Returns:** `{ data: [...messages], total, limit, skip, hasMore }`
+
+Messages are sorted newest first.
+
+**Status:** 200 OK
+
+---
+
+#### **PATCH** `/api/v1/message/seen/conversation/:id` 🔒
+Mark all messages in a conversation as read.
+
+**Params:** `id` - Conversation ID
+
+**Smart behavior:** Only marks messages you haven't seen yet, and only messages you didn't send.
+
+**Returns:** `{ count }` - Number of messages marked
+
+**Status:** 200 OK
+
+**Don't forget:** Emit `conversationMessagesSeen` socket event after!
+
+---
+
+#### **PATCH** `/api/v1/message/seen/:id` 🔒
+Mark a specific message as read.
+
+**Params:** `id` - Message ID
+
+**Returns:** Success message
+
+**Status:** 200 OK
+
+**Don't forget:** Emit `messageSeen` socket event after!
+
+---
+
+### 📞 Call Management
+
+Track your call history and details.
+
+#### **GET** `/api/v1/call/history` 🔒
+Get your call history (incoming and outgoing).
+
+**Query:** `limit` - Number of calls (default: 50)
+
+**Returns:** Array of calls with:
+- Call ID, caller, receiver
+- Video or audio call
+- Status (calling, accepted, declined, ended, missed)
+- Duration in seconds
+- Timestamps
+
+**Status:** 200 OK
+
+---
+
+#### **GET** `/api/v1/call/:callId` 🔒
+Get details of a specific call.
+
+**Params:** `callId` - Unique call identifier
+
+**Returns:** Complete call info with participants
+
+**Status:** 200 OK
+
+---
+
+### ❤️ Health Check
+
+#### **GET** `/api/v1/health`
+Is the server alive? Check here!
+
+**Returns:**
+- Server uptime
+- Database connection status
+- Memory usage
+- Environment (dev/prod)
+
+Perfect for monitoring tools or just checking if everything's okay.
+
+**Status:** 200 OK
+
+
+## 🔌 Real-time Communication (Socket.IO)
+
+This is where the magic happens! Socket.IO powers all the real-time features.
+
+### Socket Authentication
+
+All socket connections need a JWT token. Here's how to connect:
+
+```javascript
+const socket = io('http://localhost:3000', {
+  auth: { token: 'your-jwt-access-token' }
+});
+```
+
+**What happens:**
+- Server validates your token using `authenticateSocket` middleware
+- Invalid/missing token? Connection rejected with an error
+- Valid token? Your userId is attached to the socket for all events
+
+### Socket.IO Configuration
+
+- **CORS**: Only accepts connections from CLIENT_URL
+- **Ping Timeout**: 60 seconds (connection dies if no response)
+- **Ping Interval**: 25 seconds (heartbeat frequency)
+- **Credentials**: Enabled for cross-origin requests
+
+---
+
+### 👋 Connection & Presence
+
+#### **Event:** `setup` (Client → Server)
+Tell the server you're online.
+
+**Payload:** None (uses your authenticated userId)
+
+**What happens:**
+1. Adds you to online users map
+2. Joins you to your personal room (for direct messages)
+3. Broadcasts updated online users list to everyone
+
+**Response:** Everyone gets `onlineUsers` event
+
+---
+
+#### **Event:** `onlineUsers` (Server → Client)
+Get the list of who's online right now.
+
+**Payload:** Array of online user IDs
+
+**When:** Triggered whenever someone connects/disconnects
+
+**Use it to:** Show green dots next to online users in your UI
+
+---
+
+#### **Event:** `disconnect` (Automatic)
+Handles cleanup when you lose connection.
+
+**What happens:**
+1. Removes you from online users
+2. Cleans up any active calls
+3. Notifies call participants if you were in a call
+4. Broadcasts updated online users list
+
+**Automatic:** Socket.IO triggers this on connection loss
+
+---
 
 ### 💬 Real-time Messaging
-- Instant message delivery via Socket.IO
-- File attachments (images, documents)
-- Message read receipts and delivery status
-- Typing indicators
-- Group and direct conversations
+
+#### **Event:** `joinRoom` (Client → Server)
+Join a conversation room to receive messages.
+
+**Payload:** `conversationId` (string)
+
+**Important:** You must join a room before you'll receive messages for that conversation!
+
+**Use it:** Call this when user opens a conversation
+
+---
+
+#### **Event:** `newMessage` (Client → Server)
+Broadcast a message you just sent.
+
+**Payload:** `{ message: { conversationId, content, sender, attachments, ... } }`
+
+**What happens:**
+- Emits to your other devices (if you're logged in elsewhere)
+- Emits to conversation room (other participants)
+
+**Important:** Send the message via REST API first, then emit this event!
+
+---
+
+#### **Event:** `messageReceived` (Server → Client)
+Receive a new message in real-time.
+
+**Payload:** Complete message object with sender info
+
+**When:** Someone sends a message to your conversation
+
+**Use it:** Display the message immediately in your UI
+
+---
+
+#### **Event:** `newConversation` (Client → Server)
+Tell the server about a conversation you just created.
+
+**Payload:** `{ conversationId }`
+
+**What happens:**
+1. Server fetches conversation from database
+2. Adds all participants to the conversation room
+3. Emits `conversationReceived` to other participants
+
+**Use it:** Call after creating conversation via REST API
+
+---
+
+#### **Event:** `conversationReceived` (Server → Client)
+Someone added you to a conversation!
+
+**Payload:** `{ conversation }` with full details
+
+**Use it:** Add the conversation to your UI's conversation list
+
+---
+
+#### **Event:** `typing` (Client → Server)
+Let others know you're typing.
+
+**Payload:** `{ conversationId }`
+
+**What happens:** Broadcasts to conversation with your userId
+
+**Response:** Others receive `{ userId, conversationId }`
+
+**Use it:** Call when user starts typing in message input
+
+---
+
+#### **Event:** `stopTyping` (Client → Server)
+Let others know you stopped typing.
+
+**Payload:** `{ conversationId }`
+
+**Use it:** Call when user stops typing or sends the message
+
+---
+
+#### **Event:** `messageSeen` (Client → Server)
+Mark a message as read and notify the sender.
+
+**Payload:** `{ conversationId, messageId }`
+
+**What happens:** Broadcasts to conversation room
+
+**Response:** Participants receive `messageSeenUpdate`
+
+**Use it:** Call after marking message as seen via REST API
+
+---
+
+#### **Event:** `messageSeenUpdate` (Server → Client)
+Someone read your message!
+
+**Payload:** `{ conversationId, messageId, userId }`
+
+**Use it:** Show double check marks or "Read by..." in UI
+
+---
+
+#### **Event:** `conversationMessagesSeen` (Client → Server)
+Mark all messages in a conversation as read.
+
+**Payload:** `{ conversationId }`
+
+**Use it:** Call after marking conversation as seen via REST API
+
+---
+
+#### **Event:** `conversationMessagesSeenUpdate` (Server → Client)
+Someone read all messages in the conversation.
+
+**Payload:** `{ conversationId, userId }`
+
+**Use it:** Update all message read receipts at once
+
+---
 
 ### 📞 Voice & Video Calling
-- WebRTC peer-to-peer calling with signaling server
-- Audio-only and video calling support
-- Real-time call status management (calling, ringing, connected, ended)
-- Call history with duration tracking and metadata
-- Missed call detection and notifications
-- Automatic cleanup on disconnections
-- ICE candidate exchange for NAT traversal
 
-### 👥 User Management
-- User profiles with avatars
-- Online presence tracking
-- User search functionality
-- Profile updates
+WebRTC calling with the server as signaling server. The actual audio/video goes peer-to-peer!
 
-### 📊 Data Persistence
-- MongoDB with Mongoose ODM
-- Conversation management
-- Message history
-- Call logs and metadata
-- User authentication records
+### How Calls Work
 
-## Architecture
+1. **Caller** emits `callInitiated` with WebRTC offer
+2. **Server** creates call record and forwards to receiver
+3. **Receiver** gets `callReceived` notification
+4. **Receiver** emits `callAccepted` with WebRTC answer
+5. **Server** forwards answer to caller
+6. **Both** exchange ICE candidates via `callSignal`
+7. **Direct** peer-to-peer connection established! 🎉
+8. **Either** party emits `callEnded` to hang up
+
+---
+
+#### **Event:** `callInitiated` (Client → Server)
+Start a call!
+
+**Payload:**
+- `callId` ✅ - Unique UUID for this call
+- `receiverId` ✅ - Who you're calling
+- `callerInfo` ✅ - `{ _id, name, username, profilePic }`
+- `isVideoCall` ✅ - true for video, false for audio
+- `signal` ✅ - WebRTC offer from your peer connection
+
+**What happens:**
+1. Validates you're not calling yourself (that would be weird)
+2. Creates call record in database
+3. Stores in active calls map
+4. Forwards to receiver if they're online
+5. Sets 30-second timeout (marks as missed if no answer)
+
+**Security:** Your callerInfo._id must match your authenticated userId
+
+---
+
+#### **Event:** `callReceived` (Server → Client)
+Incoming call!
+
+**Payload:** `{ callId, callerInfo, isVideoCall, signal }`
+
+**Use it:** Show incoming call UI with accept/decline buttons
+
+**Note:** `signal` contains the WebRTC offer you need to create an answer
+
+---
+
+#### **Event:** `callAccepted` (Client → Server)
+Accept an incoming call.
+
+**Payload:**
+- `callId` ✅ - Call identifier
+- `signal` ✅ - WebRTC answer from your peer connection
+
+**What happens:**
+1. Updates call status to "accepted"
+2. Forwards your answer to the caller
+3. Both peers can now establish direct connection
+
+---
+
+#### **Event:** `callDeclined` (Client → Server)
+Decline an incoming call.
+
+**Payload:**
+- `callId` ✅ - Call identifier
+- `reason` - Why you declined (optional)
+
+**What happens:**
+1. Updates call status to "declined"
+2. Removes from active calls
+3. Notifies caller
+
+---
+
+#### **Event:** `callEnded` (Client → Server)
+Hang up!
+
+**Payload:** `{ callId }`
+
+**What happens:**
+1. Updates call status to "ended"
+2. Calculates and stores duration
+3. Removes from active calls
+4. Notifies both participants
+
+**Note:** Also triggered automatically if someone disconnects
+
+---
+
+#### **Event:** `callSignal` (Bidirectional)
+Exchange WebRTC signaling data (ICE candidates).
+
+**Payload:**
+- `callId` ✅ - Call identifier
+- `signal` ✅ - ICE candidate or other signaling data
+
+**What happens:** Server forwards signal to the other participant
+
+**Use it:** Exchange ICE candidates for NAT traversal
+
+**Frequency:** Multiple times during call setup
+
+---
+
+#### **Event:** `callPeerDisconnected` (Server → Client)
+The other person lost connection.
+
+**Payload:** `{ callId }`
+
+**When:** Call participant closes browser or loses connection
+
+**Use it:** Show "Call ended - peer disconnected" message
+
+---
+
+### Call Status Values
+
+- `calling` - Ringing... waiting for answer
+- `accepted` - They picked up! Establishing connection...
+- `declined` - They declined your call
+- `ended` - Call finished normally
+- `missed` - They didn't answer within 30 seconds
+
+
+## 📊 Data Models
+
+Here's what the data looks like in MongoDB:
+
+### User Schema
+```typescript
+{
+  _id: ObjectId,              // References Auth collection
+  name: string,               // Full name
+  username: string,           // Unique username
+  profilePic: string,         // Cloudinary URL (default: "")
+  status: string,             // Status message (default: "Hey there! I am using ChatApp")
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Conversation Schema
+```typescript
+{
+  _id: ObjectId,
+  isGroup: boolean,           // true for groups, false for direct
+  name: string,               // Group name (optional for direct chats)
+  participants: ObjectId[],   // Array of User IDs
+  admins: ObjectId[],         // Array of admin User IDs (for groups)
+  lastMessage: ObjectId,      // Reference to last Message
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Message Schema
+```typescript
+{
+  _id: ObjectId,
+  conversationId: ObjectId,   // Which conversation
+  sender: ObjectId,           // Who sent it
+  content: string,            // Message text
+  messageType: string,        // text|image|video|audio|document|file
+  attachments: [{
+    url: string,              // Cloudinary URL
+    publicId: string,         // Cloudinary public ID
+    originalName: string,     // Original filename
+    mimeType: string,         // File MIME type
+    size: number              // File size in bytes
+  }],
+  replyTo: ObjectId,          // Message being replied to
+  seenBy: ObjectId[],         // Who's seen this message
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Call Schema
+```typescript
+{
+  _id: ObjectId,
+  callId: string,             // Unique UUID
+  caller: ObjectId,           // Who initiated
+  receiver: ObjectId,         // Who received
+  isVideoCall: boolean,       // true = video, false = audio
+  status: string,             // calling|accepted|declined|ended|missed
+  duration: number,           // Call duration in seconds
+  startedAt: Date,            // When call started
+  endedAt: Date,              // When call ended
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+---
+
+## 🚨 Error Handling
+
+### REST API Errors
+
+All errors return this format:
+```json
+{
+  "success": false,
+  "message": "What went wrong",
+  "statusCode": 400
+}
+```
+
+**Status codes you'll see:**
+- `400` - Bad Request (validation failed, invalid input)
+- `401` - Unauthorized (missing/invalid token)
+- `403` - Forbidden (you don't have permission)
+- `404` - Not Found (resource doesn't exist)
+- `500` - Internal Server Error (something broke on our end)
+
+### Socket Errors
+
+- **Authentication fails** → Socket disconnected with error message
+- **Invalid event data** → Logged but doesn't disconnect you
+- **Missing required fields** → Logged as warnings
+
+### Global Error Handler
+
+- Catches all unhandled errors
+- Logs with full stack traces
+- Returns user-friendly messages
+- Hides sensitive info in production
+
+---
+
+## 🔒 Security Features
+
+We take security seriously:
+
+**Authentication**
+- JWT tokens (access + refresh)
+- Access tokens are short-lived
+- Refresh tokens for renewal
+- bcrypt password hashing with salt
+
+**Network Security**
+- CORS configured for CLIENT_URL only
+- Helmet security headers:
+  - Content Security Policy (CSP)
+  - HTTP Strict Transport Security (HSTS)
+  - X-Content-Type-Options (noSniff)
+  - XSS Filter
+  - Referrer Policy
+- Rate limiting on auth endpoints
+- Trust proxy for proper IP detection
+
+**Input Validation**
+- Joi schemas validate everything
+- File upload limits (10 files, 10MB max)
+- File type validation
+- SQL injection protection (MongoDB)
+
+**Socket Security**
+- Token validation on connection
+- UserId verification on every event
+- Automatic cleanup on disconnect
+
+---
+
+## 📝 Logging
+
+Using Pino for fast, structured logging:
+
+**Log Levels:**
+- `debug` - Detailed flow (socket connections, events)
+- `info` - General info (server start, DB connection)
+- `warn` - Warnings (missing data, invalid requests)
+- `error` - Errors with stack traces
+- `fatal` - Critical errors causing shutdown
+
+**What gets logged:**
+- All HTTP requests (method, URL, status, duration)
+- All socket events (event name, userId)
+- Errors with full context
+- Database queries (in debug mode)
+
+---
+
+## 🏗️ Project Structure
 
 ```
 server/
-├── config/         # Database & service configurations
-├── controllers/    # HTTP request handlers
-├── models/         # MongoDB schemas
-├── routes/         # API route definitions
-├── services/       # Business logic layer
-├── socket/         # Real-time event handlers
-├── middlewares/    # Authentication & validation
-├── utils/          # Helper functions
-└── app.js          # Application entry point
+├── src/
+│   ├── config/              # Configuration files
+│   │   ├── cloudinaryConfig.ts
+│   │   ├── dbConfig.ts
+│   │   └── envConfig.ts
+│   ├── controllers/         # Request handlers
+│   │   ├── auth.controller.ts
+│   │   ├── call.controller.ts
+│   │   ├── conversation.controller.ts
+│   │   ├── health.controller.ts
+│   │   ├── message.controller.ts
+│   │   └── user.controller.ts
+│   ├── middlewares/         # Express middlewares
+│   │   ├── auth.middleware.ts
+│   │   ├── error.middleware.ts
+│   │   ├── rateLimit.middleware.ts
+│   │   ├── requestLogger.middleware.ts
+│   │   └── upload.middleware.ts
+│   ├── models/              # Mongoose schemas
+│   │   ├── auth.model.ts
+│   │   ├── call.model.ts
+│   │   ├── conversation.model.ts
+│   │   ├── message.model.ts
+│   │   └── user.model.ts
+│   ├── routes/              # API routes
+│   │   ├── auth.routes.ts
+│   │   ├── call.routes.ts
+│   │   ├── conversation.routes.ts
+│   │   ├── health.routes.ts
+│   │   ├── message.routes.ts
+│   │   ├── user.routes.ts
+│   │   └── index.ts
+│   ├── services/            # Business logic
+│   │   ├── auth.service.ts
+│   │   ├── call.service.ts
+│   │   ├── conversation.service.ts
+│   │   ├── message.service.ts
+│   │   └── user.service.ts
+│   ├── socket/              # Socket.IO
+│   │   ├── handlers/
+│   │   │   ├── call.handlers.ts
+│   │   │   ├── chat.handlers.ts
+│   │   │   ├── presence.handlers.ts
+│   │   │   └── typing.handlers.ts
+│   │   ├── utils/
+│   │   │   ├── socketAuth.ts
+│   │   │   ├── socketConstants.ts
+│   │   │   └── socketHelpers.ts
+│   │   └── socketServer.ts
+│   ├── types/               # TypeScript types
+│   ├── utils/               # Helper functions
+│   └── app.ts               # Entry point
+├── dist/                    # Compiled JS (after build)
+├── .env                     # Environment variables
+├── package.json
+├── tsconfig.json
+└── README.md                # You are here!
 ```
+
+---
+
+## ⚡ Performance
+
+**Database Optimization:**
+- Indexes on frequently queried fields
+- Connection pooling
+- Pagination on all list endpoints
+
+**Socket.IO Optimization:**
+- Rooms for efficient broadcasting
+- Automatic cleanup on disconnect
+- Heartbeat monitoring
+
+**File Handling:**
+- Direct upload to Cloudinary (no server storage)
+- Automatic file type detection
+- Size limits enforced
+
+---
+
+## 🧪 Development Tips
+
+### Testing API Endpoints
+
+Use Postman or Thunder Client:
+
+1. Register: `POST /api/v1/auth/register`
+2. Copy the `accessToken`
+3. Add header: `Authorization: Bearer <token>`
+4. Test away!
+
+### Testing Socket.IO
+
+Browser console:
+```javascript
+const socket = io('http://localhost:3000', {
+  auth: { token: 'your-token' }
+});
+
+socket.on('connect', () => {
+  console.log('Connected!', socket.id);
+  socket.emit('setup');
+});
+
+socket.on('onlineUsers', (users) => {
+  console.log('Online:', users);
+});
+```
+
+### Debugging
+
+- `npm run dev:debug` for VS Code debugger
+- Check logs for detailed flow
+- Use browser DevTools Network tab for Socket.IO
+- Enable Mongoose debug mode for DB queries
+
+---
+
+## 🚀 Deployment
+
+### Production Checklist
+
+- [ ] Set `NODE_ENV=production`
+- [ ] Use strong JWT secrets (32+ characters)
+- [ ] Configure production MongoDB URI (MongoDB Atlas)
+- [ ] Set production CLIENT_URL
+- [ ] Enable rate limiting (uncomment in code)
+- [ ] Configure CORS for production domain
+- [ ] Set up Cloudinary production account
+- [ ] Enable HTTPS/SSL
+- [ ] Set up error monitoring (Sentry, etc.)
+- [ ] Configure log aggregation
+- [ ] Set up automated backups
+- [ ] Test WebRTC in production environment
+
+### Recommended Hosting
+
+- **Server**: AWS EC2, DigitalOcean, Heroku, Railway, Render
+- **Database**: MongoDB Atlas (free tier available)
+- **File Storage**: Cloudinary (already configured)
+- **Domain**: Use HTTPS in production (required for WebRTC)
+
+---
+
+## 🐛 Troubleshooting
+
+**Socket.IO won't connect**
+- Check CORS matches CLIENT_URL
+- Verify JWT token is valid
+- Check firewall allows WebSocket
+
+**File upload fails**
+- Verify Cloudinary credentials
+- Check file size < 10MB
+- Ensure file type is supported
+
+**Database connection error**
+- Verify MongoDB is running
+- Check DATABASE_URI format
+- Ensure network access
+
+**JWT token errors**
+- Check secrets are set in .env
+- Verify token hasn't expired
+- Ensure header format: `Bearer <token>`
+
+---
+
+## 📚 Core Libraries
+
+**Production:**
+- Express.js (v5.1.0) - Web framework
+- Socket.IO (v4.8.1) - Real-time communication
+- Mongoose (v8.13.2) - MongoDB ODM
+- jsonwebtoken (v9.0.2) - JWT auth
+- bcrypt (v5.1.1) - Password hashing
+- Multer (v1.4.5) - File uploads
+- Cloudinary (v1.41.3) - Cloud storage
+- Helmet (v8.1.0) - Security headers
+- express-rate-limit (v8.1.0) - Rate limiting
+- Joi (v17.13.3) - Validation
+- Pino (v9.6.0) - Logging
+
+**Development:**
+- TypeScript (v5.9.3)
+- tsx (v4.20.6) - TS execution
+
+---
+
+## 📄 License
+
+ISC
+
+## 👨‍💻 Author
+
+**Jatin Parashar**
+
+---
+
+## 🎉 Final Notes
+
+This server is production-ready but always room for improvement! Feel free to:
+- Add more features
+- Optimize performance
+- Improve security
+- Fix bugs
+- Make it your own!
+
+**Questions?** Check the code - it's well-commented and organized. Each file has a clear purpose.
+
+**Happy coding!** 🚀

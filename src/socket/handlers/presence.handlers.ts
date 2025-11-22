@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import {
   SOCKET_SETUP,
   SOCKET_ONLINE_USERS,
-} from "../../constants/socketConstants.js";
+} from "../utils/socketConstants.js";
 import logger from "../../utils/logger.js";
 import {
   addUserSocket,

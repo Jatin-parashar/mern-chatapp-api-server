@@ -9,7 +9,7 @@ import {
   SOCKET_MESSAGE_SEEN_UPDATE,
   SOCKET_CONVERSATION_MESSAGES_SEEN,
   SOCKET_CONVERSATION_MESSAGES_SEEN_UPDATE,
-} from "../../constants/socketConstants.js";
+} from "../utils/socketConstants.js";
 import { conversationPopulateOptions } from "../../utils/populateOptions.js";
 import logger from "../../utils/logger.js";
 import { onlineUsers } from "../utils/socketHelpers.js";

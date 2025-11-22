@@ -6,7 +6,7 @@ import {
   SOCKET_CALL_DECLINED,
   SOCKET_CALL_ENDED,
   SOCKET_CALL_SIGNAL,
-} from "../../constants/socketConstants.js";
+} from "../utils/socketConstants.js";
 import logger from "../../utils/logger.js";
 import {
   emitToUser,
