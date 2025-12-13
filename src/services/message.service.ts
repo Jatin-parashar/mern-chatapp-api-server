@@ -2,10 +2,12 @@ import { Types } from "mongoose";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
 import AppError from "../utils/appError.js";
+import { throwNotFound } from "../utils/errorHelpers.js";
 import { messagePopulateOptions } from "../utils/populateOptions.js";
 import { validateUserBelongsToConversation } from "./conversation.service.js";
 import { toString } from "../utils/common.js";
 import logger from "../utils/logger.js";
+import { validateObjectId, validateStringLength } from "../utils/commonValidation.js";
 import { MessageWithPopulatedFields } from "../types/service.js";
 import { sanitizeHtml } from "../utils/sanitization.js";
 
@@ -35,8 +37,8 @@ export const validateSendMessageInput = (
   }
 
   // Validate content length
-  if (content && content.length > 10000) {
-    throw new AppError("Message content exceeds 10,000 characters", 400);
+  if (content) {
+    validateStringLength(content, 10000, "Message content");
   }
 
   // Validate message type
@@ -49,19 +51,7 @@ export const validateSendMessageInput = (
   }
 };
 
-export const validateConversationId = (
-  conversationId: string | Types.ObjectId
-): void => {
-  if (!conversationId) {
-    throw new AppError("Conversation ID is required", 400);
-  }
-};
 
-export const validateMessageId = (messageId: string | Types.ObjectId): void => {
-  if (!messageId) {
-    throw new AppError("Message ID is required", 400);
-  }
-};
 
 export const createMessageInConversation = async (
   userId: string | Types.ObjectId,
@@ -127,7 +117,7 @@ export const fetchMessagesByConversationId = async (
   limit?: number,
   skip?: number
 ): Promise<MessageWithPopulatedFields[]> => {
-  validateConversationId(conversationId);
+  validateObjectId(conversationId, "Conversation ID");
 
   let query = Message.find({ conversationId })
     .populate(messagePopulateOptions)
@@ -150,7 +140,7 @@ export const fetchMessagesByCursor = async (
   cursor?: string,
   limit: number = 50
 ): Promise<{ messages: MessageWithPopulatedFields[]; nextCursor: string | null }> => {
-  validateConversationId(conversationId);
+  validateObjectId(conversationId, "Conversation ID");
 
   const query: any = { conversationId };
   if (cursor) {
@@ -174,11 +164,11 @@ export const markMessageAsSeen = async (
   messageId: string | Types.ObjectId,
   userId: string | Types.ObjectId
 ): Promise<boolean> => {
-  validateMessageId(messageId);
+  validateObjectId(messageId, "Message ID");
 
   const message = await Message.findById(messageId);
   if (!message) {
-    throw new AppError("Message not found", 404);
+    throwNotFound("Message");
   }
 
   // Check if already seen
@@ -203,7 +193,7 @@ export const markConversationMessagesSeen = async (
   conversationId: string | Types.ObjectId,
   userId: string | Types.ObjectId
 ): Promise<number> => {
-  validateConversationId(conversationId);
+  validateObjectId(conversationId, "Conversation ID");
 
   const messages = await Message.find({
     conversationId,

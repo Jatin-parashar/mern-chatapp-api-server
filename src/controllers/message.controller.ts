@@ -10,7 +10,8 @@ import {
 import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import { AuthRequest } from "../types/express.js";
-import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
+import { buildPaginatedQuery } from "../utils/queryBuilder.js";
+import { messagePopulateOptions } from "../utils/populateOptions.js";
 import { emitNewMessage, emitMessageSeen, emitConversationMessagesSeen } from "../services/socket.service.js";
 
 export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -36,17 +37,16 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
 
 export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { limit, skip } = parsePaginationParams(
-    req.query.limit as string,
-    req.query.skip as string
+  const result = await buildPaginatedQuery(
+    Message,
+    req.query,
+    {
+      filter: { conversationId: id },
+      populate: messagePopulateOptions,
+      sort: { createdAt: 1 },
+      lean: true
+    }
   );
-
-  const [messages, total] = await Promise.all([
-    fetchMessagesByConversationId(id, limit, skip),
-    Message.countDocuments({ conversationId: id })
-  ]);
-
-  const result = createPaginationResult(messages, total, limit, skip);
   sendSuccessResponse(res, 200, "Messages fetched successfully", result);
 });
 

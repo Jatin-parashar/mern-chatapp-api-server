@@ -2,11 +2,8 @@ import { Response } from "express";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import { sendSuccessResponse } from "../utils/response.js";
-import {
-  createAccessToken,
-  createRefreshToken,
-  validateRefreshToken,
-} from "../utils/auth.js";
+import { validateRefreshToken, createAccessToken } from "../utils/auth.js";
+import { createTokenPair } from "../utils/authHelpers.js";
 import { createUser, loginUser } from "../services/auth.service.js";
 import { JwtPayload } from "jsonwebtoken";
 import { AuthFileRequest } from "../types/express.js";
@@ -25,8 +22,7 @@ export const register = catchAsync(
       profilePic
     );
 
-    const accessToken = createAccessToken(createdUser);
-    const refreshToken = createRefreshToken(createdUser);
+    const { accessToken, refreshToken } = createTokenPair(createdUser);
 
     sendSuccessResponse(res, 201, "User created successfully", {
       user: createdUser,
@@ -41,8 +37,7 @@ export const login = catchAsync(async (req: AuthFileRequest, res: Response) => {
 
   const authenticatedUser = await loginUser(email, password);
 
-  const accessToken = createAccessToken(authenticatedUser);
-  const refreshToken = createRefreshToken(authenticatedUser);
+  const { accessToken, refreshToken } = createTokenPair(authenticatedUser);
 
   sendSuccessResponse(res, 200, "User logged in", {
     user: authenticatedUser,

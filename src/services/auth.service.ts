@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import AuthCredential from "../models/auth.model.js";
+import { throwRequired } from "../utils/errorHelpers.js";
 import AppError from "../utils/appError.js";
 import { hashPassword, verifyPassword } from "../utils/auth.js";
 import {
@@ -20,7 +21,7 @@ export const createUser = async (
   profilePic?: string
 ): Promise<UserPayload> => {
   if (!name || !email || !username || !password) {
-    throw new AppError("All required fields must be provided", 400);
+    throwRequired("All required fields");
   }
 
   validateField(name, validateName);
@@ -66,7 +67,7 @@ export const loginUser = async (
   password: string
 ): Promise<UserPayload> => {
   if (!email || !password) {
-    throw new AppError("All fields are required", 400);
+    throwRequired("All fields");
   }
 
   validateField(email, validateEmail);

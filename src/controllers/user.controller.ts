@@ -1,9 +1,7 @@
 import { Response } from "express";
 import {
   checkUsernameAvailability,
-  findAllUsers,
   findUserById,
-  searchUsers,
   updateUserStatus,
 } from "../services/user.service.js";
 import catchAsync from "../utils/catchAsync.js";
@@ -11,7 +9,8 @@ import { sendSuccessResponse } from "../utils/response.js";
 import { AuthRequest } from "../types/express.js";
 import AppError from "../utils/appError.js";
 import User from "../models/user.model.js";
-import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
+import { buildPaginatedQuery } from "../utils/queryBuilder.js";
+import { sanitizeRegexInput } from "../utils/sanitization.js";
 
 export const getCurrentUser = catchAsync(async (req: AuthRequest, res: Response) => {
   const user = await findUserById(req.user!._id);
@@ -19,17 +18,7 @@ export const getCurrentUser = catchAsync(async (req: AuthRequest, res: Response)
 });
 
 export const getAllUsers = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { limit, skip } = parsePaginationParams(
-    req.query.limit as string,
-    req.query.skip as string
-  );
-
-  const [users, total] = await Promise.all([
-    findAllUsers(limit, skip),
-    User.countDocuments({})
-  ]);
-
-  const result = createPaginationResult(users, total, limit, skip);
+  const result = await buildPaginatedQuery(User, req.query, { lean: true });
   sendSuccessResponse(res, 200, "Users fetched successfully", result);
 });
 
@@ -40,25 +29,17 @@ export const getuserById = catchAsync(async (req: AuthRequest, res: Response) =>
 
 export const searchUsersByKeyword = catchAsync(async (req: AuthRequest, res: Response) => {
   const keyword = req.query.keyword as string;
-  const { limit, skip } = parsePaginationParams(
-    req.query.limit as string,
-    req.query.skip as string
-  );
-
   const { sanitizeRegexInput } = await import("../utils/sanitization.js");
   const sanitizedKeyword = sanitizeRegexInput(keyword);
 
-  const [users, total] = await Promise.all([
-    searchUsers(keyword, limit, skip),
-    User.countDocuments({
-      $or: [
-        { name: { $regex: sanitizedKeyword, $options: "i" } },
-        { username: { $regex: sanitizedKeyword, $options: "i" } },
-      ],
-    })
-  ]);
+  const filter = {
+    $or: [
+      { name: { $regex: sanitizedKeyword, $options: "i" } },
+      { username: { $regex: sanitizedKeyword, $options: "i" } },
+    ],
+  };
 
-  const result = createPaginationResult(users, total, limit, skip);
+  const result = await buildPaginatedQuery(User, req.query, { filter, lean: true });
   sendSuccessResponse(res, 200, "Users fetched successfully", result);
 });
 

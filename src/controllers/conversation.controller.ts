@@ -2,13 +2,13 @@ import { Response } from "express";
 import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import {
-  fetchUserConversations,
   fetchUserConversationsById,
   handleConversationCreation,
 } from "../services/conversation.service.js";
 import { AuthRequest } from "../types/express.js";
 import Conversation from "../models/conversation.model.js";
-import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
+import { buildPaginatedQuery } from "../utils/queryBuilder.js";
+import { conversationPopulateOptions } from "../utils/populateOptions.js";
 import { setupConversationRooms } from "../services/socket.service.js";
 
 export const createConversation = catchAsync(
@@ -40,17 +40,16 @@ export const createConversation = catchAsync(
 
 export const getUserConversations = catchAsync(
   async (req: AuthRequest, res: Response) => {
-    const { limit, skip } = parsePaginationParams(
-      req.query.limit as string,
-      req.query.skip as string
+    const result = await buildPaginatedQuery(
+      Conversation, 
+      req.query, 
+      { 
+        filter: { participants: req.user!._id },
+        populate: conversationPopulateOptions,
+        sort: { updatedAt: -1 },
+        lean: true
+      }
     );
-
-    const [conversations, total] = await Promise.all([
-      fetchUserConversations(req.user!._id, limit, skip),
-      Conversation.countDocuments({ participants: req.user!._id })
-    ]);
-
-    const result = createPaginationResult(conversations, total, limit, skip);
     sendSuccessResponse(res, 200, "User conversations fetched successfully", result);
   }
 );

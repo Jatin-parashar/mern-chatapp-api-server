@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import Conversation from "../models/conversation.model.js";
 import AppError from "../utils/appError.js";
+import { throwNotFound } from "../utils/errorHelpers.js";
 import { conversationPopulateOptions } from "../utils/populateOptions.js";
 import { toString } from "../utils/common.js";
 import logger from "../utils/logger.js";
@@ -120,25 +121,7 @@ export const handleConversationCreation = async ({
   };
 };
 
-export const fetchUserConversations = async (
-  userId: string | Types.ObjectId,
-  limit?: number,
-  skip?: number
-): Promise<ConversationWithPopulatedFields[]> => {
-  let query = Conversation.find({ participants: userId })
-    .populate(conversationPopulateOptions)
-    .sort({ updatedAt: -1 });
-
-  if (limit !== undefined) {
-    query = query.limit(limit);
-  }
-
-  if (skip !== undefined) {
-    query = query.skip(skip);
-  }
-
-  return await query.lean<ConversationWithPopulatedFields[]>();
-};
+// This function is now handled by queryBuilder utility in controllers
 
 export const fetchUserConversationsById = async (
   conversationId: string | Types.ObjectId,
@@ -148,11 +131,9 @@ export const fetchUserConversationsById = async (
     .populate(conversationPopulateOptions)
     .lean<ConversationWithPopulatedFields>();
 
-  if (!conversation) {
-    throw new AppError("Conversation not found", 404);
-  }
+  if (!conversation) throwNotFound("Conversation");
+  
+  validateUserBelongsToConversation(conversation!, userId);
 
-  validateUserBelongsToConversation(conversation, userId);
-
-  return conversation;
+  return conversation!;
 };

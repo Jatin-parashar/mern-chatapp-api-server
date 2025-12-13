@@ -16,6 +16,7 @@ import {
   removeActiveCall,
   shouldThrottleICE,
 } from "../utils/socketHelpers.js";
+import { clearCallTimeouts } from "../../utils/callHelpers.js";
 import {
   createCall,
   updateCallStatus,
@@ -245,8 +246,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         );
 
         // Clear timeouts
-        if ((call as any).ringTimeout) clearTimeout((call as any).ringTimeout);
-        if ((call as any).durationTimeout) clearTimeout((call as any).durationTimeout);
+        clearCallTimeouts(call);
 
         // Update call status in database
         await updateCallStatus(callId, "declined");
@@ -285,8 +285,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         logger.debug(`Call ended: ${callId}`);
 
         // Clear timeouts
-        if ((call as any).ringTimeout) clearTimeout((call as any).ringTimeout);
-        if ((call as any).durationTimeout) clearTimeout((call as any).durationTimeout);
+        clearCallTimeouts(call);
 
         // Update call status in database (will calculate duration)
         await updateCallStatus(callId, "ended");
