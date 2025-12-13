@@ -14,18 +14,22 @@
 This isn't your basic CRUD app. Here's what makes it powerful:
 
 ### 💬 Messaging
-- **Real-time messaging** - Messages appear instantly, no refresh needed
-- **File sharing** - Send images, videos, documents (up to 10 files at once)
+- **Real-time messaging** - Messages appear instantly via Socket.IO (server-side emissions)
+- **File sharing** - Send images, videos, documents (up to 10 files, 50MB max)
 - **Message replies** - Quote and reply to specific messages
 - **Read receipts** - See who's read your messages (those double check marks)
 - **Typing indicators** - "John is typing..." you know the drill
 - **Group chats** - Create groups with multiple participants
+- **Cursor pagination** - Efficient message loading for large conversations
 
 ### 📞 Voice & Video Calls
 - **WebRTC calling** - Peer-to-peer audio and video calls
 - **Call history** - Track all your calls with duration
-- **Missed call detection** - Automatic timeout handling
+- **Missed call detection** - Automatic timeout (45s configurable)
+- **Call duration limits** - Auto-end after 4 hours (configurable)
+- **ICE candidate throttling** - Prevents signal overflow
 - **Multi-device support** - Take calls on any device
+- **Graceful disconnect handling** - Proper cleanup on connection loss
 
 ### 👥 User Management
 - **JWT authentication** - Secure token-based auth with refresh tokens
@@ -36,20 +40,23 @@ This isn't your basic CRUD app. Here's what makes it powerful:
 ### 🔒 Security (Because we care)
 - **Password hashing** - bcrypt with proper salting
 - **Rate limiting** - Stop those brute force attacks
-- **Input validation** - Joi schemas for everything
+- **Input validation** - Joi schemas + sanitization for everything
+- **XSS protection** - HTML entity encoding on all user input
+- **File upload security** - Extension blocking, MIME validation, size limits
 - **Security headers** - Helmet configured properly
 - **CORS protection** - Only your frontend can talk to this
+- **Socket authentication** - JWT validation on every connection
 
 ## 🛠️ Tech Stack
 
 We picked the best tools for the job:
 
 **Core**
-- **Node.js** - Because JavaScript everywhere
-- **TypeScript** - Type safety saves lives (and bugs)
-- **Express.js** - The classic, battle-tested web framework
-- **MongoDB** - Flexible NoSQL for our data
-- **Socket.IO** - Real-time magic ✨
+- **Node.js** (v16+) - Because JavaScript everywhere
+- **TypeScript** (v5.9) - Type safety saves lives (and bugs)
+- **Express.js** (v5.1) - The classic, battle-tested web framework
+- **MongoDB** (v8.13) - Flexible NoSQL for our data
+- **Socket.IO** (v4.8) - Real-time magic with proper architecture ✨
 
 **Authentication & Security**
 - **JWT** - Stateless authentication done right
@@ -110,6 +117,7 @@ Create a `.env` file with these variables. Pro tip: Use strong secrets in produc
 ```env
 # Server Configuration
 NODE_ENV=development              # development or production
+PORT=3000                         # Server port (default: 3000)
 CLIENT_URL=http://localhost:5173  # Your frontend URL (important for CORS!)
 
 # Database
@@ -125,6 +133,14 @@ REFRESH_JWT_SECRET=your-super-secret-refresh-token-also-change-this
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
+
+# Call Configuration (optional - defaults provided)
+CALL_RING_TIMEOUT=45000           # Ring timeout in ms (default: 45 seconds)
+CALL_MAX_DURATION=14400000        # Max call duration in ms (default: 4 hours)
+
+# Cleanup Configuration (optional - defaults provided)
+CLEANUP_INTERVAL=300000           # Cleanup interval in ms (default: 5 minutes)
+STALE_THRESHOLD=1800000           # Stale entry threshold in ms (default: 30 minutes)
 ```
 
 **🎯 Quick Tips:**
@@ -346,23 +362,27 @@ Send a message with optional file attachments.
 
 **Body:** `multipart/form-data`
 - `conversationId` ✅ - Which conversation
-- `content` - Text message (optional if you're sending files)
-- `files[]` - Up to 10 files (images, videos, documents)
+- `content` - Text message (optional if you're sending files, max 10,000 chars)
+- `files[]` - Up to 10 files (images: 10MB, videos: 50MB, documents: 25MB)
 - `messageType` - Auto-detected from file type
 - `replyTo` - Message ID you're replying to (optional)
 
-**Magic:** We automatically detect message type from MIME types (image, video, audio, document, file).
+**Magic:** 
+- Auto-detects message type from MIME types
+- Sanitizes content for XSS protection
+- Validates file extensions and MIME types
+- Server automatically emits socket event to all participants
 
 **Returns:** `{ message }` with file URLs from Cloudinary
 
 **Status:** 201 Created
 
-**Pro tip:** After sending, emit a `newMessage` socket event for real-time delivery!
+**Important:** No need to emit socket events - server handles it automatically!
 
 ---
 
 #### **GET** `/api/v1/message/conversation/:id` 🔒
-Get messages from a conversation.
+Get messages from a conversation (offset pagination).
 
 **Params:** `id` - Conversation ID
 
@@ -373,6 +393,23 @@ Get messages from a conversation.
 **Returns:** `{ data: [...messages], total, limit, skip, hasMore }`
 
 Messages are sorted newest first.
+
+**Status:** 200 OK
+
+---
+
+#### **GET** `/api/v1/message/conversation/:id/cursor` 🔒
+Get messages with cursor-based pagination (more efficient for large chats).
+
+**Params:** `id` - Conversation ID
+
+**Query:**
+- `cursor` - Message ID to start from (optional)
+- `limit` - Messages per page (default: 50)
+
+**Returns:** `{ messages: [...], nextCursor: string | null }`
+
+**Why cursor?** Better performance for real-time chats, no skipped messages.
 
 **Status:** 200 OK
 
@@ -389,7 +426,7 @@ Mark all messages in a conversation as read.
 
 **Status:** 200 OK
 
-**Don't forget:** Emit `conversationMessagesSeen` socket event after!
+**Important:** Server automatically emits socket event to notify others!
 
 ---
 
@@ -398,11 +435,13 @@ Mark a specific message as read.
 
 **Params:** `id` - Message ID
 
+**Body:** `{ conversationId }` - Required for socket notification
+
 **Returns:** Success message
 
 **Status:** 200 OK
 
-**Don't forget:** Emit `messageSeen` socket event after!
+**Important:** Server automatically emits socket event to notify others!
 
 ---
 
@@ -457,6 +496,29 @@ Perfect for monitoring tools or just checking if everything's okay.
 
 This is where the magic happens! Socket.IO powers all the real-time features.
 
+### 🎯 Single Source of Truth Architecture
+
+**Important:** The server now handles socket emissions automatically!
+
+**Old way (race conditions):**
+```javascript
+// ❌ Client had to do two things
+await api.sendMessage(data);        // 1. REST API
+socket.emit('newMessage', message); // 2. Socket event
+```
+
+**New way (atomic, reliable):**
+```javascript
+// ✅ Just call REST API - server handles socket emission
+await api.sendMessage(data);  // Server emits to all participants automatically
+```
+
+**Benefits:**
+- No race conditions
+- Guaranteed delivery
+- Works even if client has network issues
+- Simpler client code
+
 ### Socket Authentication
 
 All socket connections need a JWT token. Here's how to connect:
@@ -469,7 +531,7 @@ const socket = io('http://localhost:3000', {
 
 **What happens:**
 - Server validates your token using `authenticateSocket` middleware
-- Invalid/missing token? Connection rejected with an error
+- Invalid/missing token? Connection rejected immediately with disconnect
 - Valid token? Your userId is attached to the socket for all events
 
 ### Socket.IO Configuration
@@ -534,19 +596,6 @@ Join a conversation room to receive messages.
 
 ---
 
-#### **Event:** `newMessage` (Client → Server)
-Broadcast a message you just sent.
-
-**Payload:** `{ message: { conversationId, content, sender, attachments, ... } }`
-
-**What happens:**
-- Emits to your other devices (if you're logged in elsewhere)
-- Emits to conversation room (other participants)
-
-**Important:** Send the message via REST API first, then emit this event!
-
----
-
 #### **Event:** `messageReceived` (Server → Client)
 Receive a new message in real-time.
 
@@ -555,20 +604,6 @@ Receive a new message in real-time.
 **When:** Someone sends a message to your conversation
 
 **Use it:** Display the message immediately in your UI
-
----
-
-#### **Event:** `newConversation` (Client → Server)
-Tell the server about a conversation you just created.
-
-**Payload:** `{ conversationId }`
-
-**What happens:**
-1. Server fetches conversation from database
-2. Adds all participants to the conversation room
-3. Emits `conversationReceived` to other participants
-
-**Use it:** Call after creating conversation via REST API
 
 ---
 
@@ -603,34 +638,12 @@ Let others know you stopped typing.
 
 ---
 
-#### **Event:** `messageSeen` (Client → Server)
-Mark a message as read and notify the sender.
-
-**Payload:** `{ conversationId, messageId }`
-
-**What happens:** Broadcasts to conversation room
-
-**Response:** Participants receive `messageSeenUpdate`
-
-**Use it:** Call after marking message as seen via REST API
-
----
-
 #### **Event:** `messageSeenUpdate` (Server → Client)
 Someone read your message!
 
 **Payload:** `{ conversationId, messageId, userId }`
 
 **Use it:** Show double check marks or "Read by..." in UI
-
----
-
-#### **Event:** `conversationMessagesSeen` (Client → Server)
-Mark all messages in a conversation as read.
-
-**Payload:** `{ conversationId }`
-
-**Use it:** Call after marking conversation as seen via REST API
 
 ---
 
@@ -932,6 +945,8 @@ Using Pino for fast, structured logging:
 
 ## 🏗️ Project Structure
 
+**Clean Architecture** - Layered design with clear separation of concerns:
+
 ```
 server/
 ├── src/
@@ -939,13 +954,32 @@ server/
 │   │   ├── cloudinaryConfig.ts
 │   │   ├── dbConfig.ts
 │   │   └── envConfig.ts
-│   ├── controllers/         # Request handlers
+│   ├── controllers/         # Request handlers (thin, orchestration only)
 │   │   ├── auth.controller.ts
 │   │   ├── call.controller.ts
 │   │   ├── conversation.controller.ts
 │   │   ├── health.controller.ts
 │   │   ├── message.controller.ts
 │   │   └── user.controller.ts
+│   ├── services/            # Business logic + DB operations
+│   │   ├── auth.service.ts
+│   │   ├── call.service.ts
+│   │   ├── conversation.service.ts
+│   │   ├── message.service.ts
+│   │   ├── socket.service.ts    # ✨ Socket emission layer
+│   │   └── user.service.ts
+│   ├── socket/              # Socket.IO real-time layer
+│   │   ├── handlers/
+│   │   │   ├── call.handlers.ts
+│   │   │   ├── chat.handlers.ts
+│   │   │   ├── disconnect.handler.ts  # ✨ Disconnect cleanup
+│   │   │   ├── presence.handlers.ts
+│   │   │   └── typing.handlers.ts
+│   │   ├── utils/
+│   │   │   ├── socketAuth.ts
+│   │   │   ├── socketConstants.ts
+│   │   │   └── socketHelpers.ts
+│   │   └── socketServer.ts
 │   ├── middlewares/         # Express middlewares
 │   │   ├── auth.middleware.ts
 │   │   ├── error.middleware.ts
@@ -966,32 +1000,24 @@ server/
 │   │   ├── message.routes.ts
 │   │   ├── user.routes.ts
 │   │   └── index.ts
-│   ├── services/            # Business logic
-│   │   ├── auth.service.ts
-│   │   ├── call.service.ts
-│   │   ├── conversation.service.ts
-│   │   ├── message.service.ts
-│   │   └── user.service.ts
-│   ├── socket/              # Socket.IO
-│   │   ├── handlers/
-│   │   │   ├── call.handlers.ts
-│   │   │   ├── chat.handlers.ts
-│   │   │   ├── presence.handlers.ts
-│   │   │   └── typing.handlers.ts
-│   │   ├── utils/
-│   │   │   ├── socketAuth.ts
-│   │   │   ├── socketConstants.ts
-│   │   │   └── socketHelpers.ts
-│   │   └── socketServer.ts
 │   ├── types/               # TypeScript types
 │   ├── utils/               # Helper functions
+│   │   └── sanitization.ts  # ✨ XSS protection
 │   └── app.ts               # Entry point
 ├── dist/                    # Compiled JS (after build)
 ├── .env                     # Environment variables
+├── .env.example             # Environment template
 ├── package.json
 ├── tsconfig.json
 └── README.md                # You are here!
 ```
+
+**Architecture Principles:**
+- **Controllers** → Thin, handle requests/responses only
+- **Services** → Business logic + database operations
+- **Socket Service** → Centralized real-time emissions
+- **Handlers** → Event-specific socket logic
+- **Single Source of Truth** → REST API triggers socket events server-side
 
 ---
 
@@ -1000,17 +1026,28 @@ server/
 **Database Optimization:**
 - Indexes on frequently queried fields
 - Connection pooling
-- Pagination on all list endpoints
+- Cursor-based pagination for messages (more efficient)
+- Offset pagination for other resources
 
 **Socket.IO Optimization:**
 - Rooms for efficient broadcasting
 - Automatic cleanup on disconnect
-- Heartbeat monitoring
+- Heartbeat monitoring (60s timeout, 25s interval)
+- ICE candidate throttling (50/second)
+- Optimized online user broadcasts (only on changes)
+
+**Memory Management:**
+- Periodic cleanup (every 5 minutes)
+- Stale entry removal (30 minutes threshold)
+- Timeout cleanup on all code paths
+- Graceful shutdown with memory clearing
 
 **File Handling:**
 - Direct upload to Cloudinary (no server storage)
 - Automatic file type detection
-- Size limits enforced
+- Size limits enforced (10MB images, 50MB videos, 25MB documents)
+- Dangerous extension blocking
+- MIME type validation
 
 ---
 
@@ -1063,11 +1100,14 @@ socket.on('onlineUsers', (users) => {
 - [ ] Enable rate limiting (uncomment in code)
 - [ ] Configure CORS for production domain
 - [ ] Set up Cloudinary production account
+- [ ] Configure call timeouts (CALL_RING_TIMEOUT, CALL_MAX_DURATION)
+- [ ] Configure cleanup intervals (CLEANUP_INTERVAL, STALE_THRESHOLD)
 - [ ] Enable HTTPS/SSL
 - [ ] Set up error monitoring (Sentry, etc.)
 - [ ] Configure log aggregation
 - [ ] Set up automated backups
 - [ ] Test WebRTC in production environment
+- [ ] Verify graceful shutdown works
 
 ### Recommended Hosting
 
@@ -1115,11 +1155,41 @@ socket.on('onlineUsers', (users) => {
 - Helmet (v8.1.0) - Security headers
 - express-rate-limit (v8.1.0) - Rate limiting
 - Joi (v17.13.3) - Validation
-- Pino (v9.6.0) - Logging
+- Pino (v9.6.0) - Structured logging
 
 **Development:**
 - TypeScript (v5.9.3)
 - tsx (v4.20.6) - TS execution
+
+## 🏆 Code Quality
+
+**Architecture:**
+- ✅ Clean layered architecture (Controller → Service → Model)
+- ✅ SOLID principles throughout
+- ✅ Single source of truth for real-time events
+- ✅ Separation of concerns (socket service layer)
+- ✅ DRY code (no duplication)
+
+**Security:**
+- ✅ XSS protection with HTML entity encoding
+- ✅ File upload validation (extension, MIME, size)
+- ✅ Input sanitization on all user data
+- ✅ Socket authentication with JWT
+- ✅ Regex injection prevention
+
+**Performance:**
+- ✅ Cursor-based pagination
+- ✅ Memory leak prevention
+- ✅ Graceful shutdown
+- ✅ ICE candidate throttling
+- ✅ Optimized broadcasts
+
+**Maintainability:**
+- ✅ TypeScript for type safety
+- ✅ Structured logging with context
+- ✅ Clear file organization
+- ✅ Comprehensive error handling
+- ✅ Well-documented code
 
 ---
 

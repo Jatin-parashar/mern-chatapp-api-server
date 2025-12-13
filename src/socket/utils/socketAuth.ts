@@ -16,15 +16,17 @@ export const authenticateSocket = (
   try {
     const token = socket.handshake.auth.token;
 
-    if (!token) {
-      logger.warn("Socket connection attempt without token");
+    if (!token || typeof token !== 'string') {
+      logger.warn({ socketId: socket.id }, "Socket connection attempt without valid token");
+      socket.disconnect(true);
       return next(new Error("Authentication error: No token provided"));
     }
 
     const user = validateAccessToken(token) as JwtPayload;
     
-    if (!user || !user._id || !user.email) {
-      logger.warn("Invalid token payload");
+    if (!user || typeof user !== 'object' || !user._id || !user.email) {
+      logger.warn({ socketId: socket.id }, "Invalid token payload");
+      socket.disconnect(true);
       return next(new Error("Authentication error: Invalid token"));
     }
     
@@ -36,7 +38,8 @@ export const authenticateSocket = (
     logger.debug(`Socket authenticated for user: ${user._id}`);
     next();
   } catch (error) {
-    logger.error({ err: error }, "Socket authentication failed");
+    logger.error({ err: error, socketId: socket.id }, "Socket authentication failed");
+    socket.disconnect(true);
     return next(new Error("Authentication error: Token validation failed"));
   }
 };

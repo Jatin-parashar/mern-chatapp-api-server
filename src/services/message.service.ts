@@ -7,6 +7,7 @@ import { validateUserBelongsToConversation } from "./conversation.service.js";
 import { toString } from "../utils/common.js";
 import logger from "../utils/logger.js";
 import { MessageWithPopulatedFields } from "../types/service.js";
+import { sanitizeHtml } from "../utils/sanitization.js";
 
 interface MessageData {
   content?: string;
@@ -31,6 +32,11 @@ export const validateSendMessageInput = (
 
   if (!hasContent && !hasAttachments) {
     throw new AppError("Message must have either content or attachments", 400);
+  }
+
+  // Validate content length
+  if (content && content.length > 10000) {
+    throw new AppError("Message content exceeds 10,000 characters", 400);
   }
 
   // Validate message type
@@ -85,9 +91,9 @@ export const createMessageInConversation = async (
     messageType,
   };
 
-  // Add content if provided
+  // Add content if provided (sanitized)
   if (content) {
-    messageObj.content = content.trim();
+    messageObj.content = sanitizeHtml(content.trim());
   }
 
   // Add attachments if provided
@@ -139,6 +145,31 @@ export const fetchMessagesByConversationId = async (
   return messages;
 };
 
+export const fetchMessagesByCursor = async (
+  conversationId: string | Types.ObjectId,
+  cursor?: string,
+  limit: number = 50
+): Promise<{ messages: MessageWithPopulatedFields[]; nextCursor: string | null }> => {
+  validateConversationId(conversationId);
+
+  const query: any = { conversationId };
+  if (cursor) {
+    query._id = { $lt: new Types.ObjectId(cursor) };
+  }
+
+  const messages = await Message.find(query)
+    .populate(messagePopulateOptions)
+    .sort({ _id: -1 })
+    .limit(limit + 1)
+    .lean<MessageWithPopulatedFields[]>();
+
+  const hasMore = messages.length > limit;
+  const results = hasMore ? messages.slice(0, limit) : messages;
+  const nextCursor = hasMore ? results[results.length - 1]._id.toString() : null;
+
+  return { messages: results.reverse(), nextCursor };
+};
+
 export const markMessageAsSeen = async (
   messageId: string | Types.ObjectId,
   userId: string | Types.ObjectId
@@ -166,4 +197,29 @@ export const markMessageAsSeen = async (
 
   logger.debug(`Message ${messageId} marked as seen by user ${userId}`);
   return false;
+};
+
+export const markConversationMessagesSeen = async (
+  conversationId: string | Types.ObjectId,
+  userId: string | Types.ObjectId
+): Promise<number> => {
+  validateConversationId(conversationId);
+
+  const messages = await Message.find({
+    conversationId,
+    sender: { $ne: userId },
+    seenBy: { $ne: userId },
+  });
+
+  const messageIds = messages.map((msg) => msg._id);
+
+  if (messageIds.length > 0) {
+    await Message.updateMany(
+      { _id: { $in: messageIds } },
+      { $addToSet: { seenBy: userId } }
+    );
+    logger.debug(`${messageIds.length} messages marked as seen in conversation ${conversationId}`);
+  }
+
+  return messageIds.length;
 };

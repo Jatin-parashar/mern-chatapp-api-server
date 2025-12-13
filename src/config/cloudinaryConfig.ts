@@ -4,6 +4,8 @@ import multer from "multer";
 import logger from "../utils/logger.js";
 
 export function cloudinaryConfig() {
+  // Configure using individual credentials
+  // Alternative: Use CLOUDINARY_URL env variable (cloudinary://api_key:api_secret@cloud_name)
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -63,7 +65,7 @@ export const storage = new CloudinaryStorage({
 export const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max file size
+    fileSize: 50 * 1024 * 1024, // 50MB max (matches validation)
   },
 });
 

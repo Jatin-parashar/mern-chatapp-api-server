@@ -9,6 +9,7 @@ import { checkUsername } from "../controllers/user.controller.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 import { upload } from "../config/cloudinaryConfig.js";
 import { authLimiter } from "../middlewares/rateLimit.middleware.js";
+
 const router = Router();
 
 router

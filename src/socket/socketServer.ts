@@ -3,33 +3,28 @@ import {
   SOCKET_CONNECTION,
   SOCKET_DISCONNECT,
   SOCKET_ONLINE_USERS,
-  SOCKET_CALL_PEER_DISCONNECTED,
-  SOCKET_CALL_ENDED,
 } from "./utils/socketConstants.js";
 import logger from "../utils/logger.js";
 import {
-  removeUserSocket,
   getOnlineUserIds,
-  formatOnlineUsersWithSockets,
-  broadcastOnlineUsers,
-  findCallBySocketId,
-  removeActiveCall,
-  emitToUser,
-  getActiveCallIds,
+  cleanupStaleEntries,
+  clearAllMemoryData,
+  onlineUsers,
 } from "./utils/socketHelpers.js";
+import { CLEANUP_INTERVAL, STALE_THRESHOLD } from "../config/envConfig.js";
 import { registerPresenceHandlers } from "./handlers/presence.handlers.js";
 import { registerChatHandlers } from "./handlers/chat.handlers.js";
 import { registerTypingHandlers } from "./handlers/typing.handlers.js";
 import { registerCallHandlers } from "./handlers/call.handlers.js";
-import { updateCallStatus } from "../services/call.service.js";
+import { handleDisconnect } from "./handlers/disconnect.handler.js";
 import { authenticateSocket, CustomSocket } from "./utils/socketAuth.js";
 import type { Server as HTTPServer } from "http";
 
-/**
- * Initialize Socket.IO server with all event handlers
- * @param server - HTTP server instance
- * @returns Configured Socket.IO server instance
- */
+// Store io instance for access from controllers
+let ioInstance: Server | null = null;
+
+export const getIO = (): Server | null => ioInstance;
+
 export const initSocketServer = (server: HTTPServer): Server => {
   const io = new Server(server, {
     cors: {
@@ -40,6 +35,8 @@ export const initSocketServer = (server: HTTPServer): Server => {
     pingInterval: 25000,
   });
 
+  ioInstance = io;
+
   // Apply authentication middleware
   io.use(authenticateSocket);
 
@@ -47,7 +44,7 @@ export const initSocketServer = (server: HTTPServer): Server => {
     // Cast to CustomSocket after authentication
     const customSocket = socket as CustomSocket;
     
-    logger.debug(`User connected: ${customSocket.id} (user: ${customSocket.userId})`);
+    logger.debug({ socketId: customSocket.id, userId: customSocket.userId }, "User connected");
 
     // Register all event handlers
     registerPresenceHandlers(io, customSocket);
@@ -56,65 +53,48 @@ export const initSocketServer = (server: HTTPServer): Server => {
     registerCallHandlers(io, customSocket);
 
     // Handle socket disconnection
-    customSocket.on(SOCKET_DISCONNECT, async (): Promise<void> => {
-      logger.debug(`User disconnected: ${customSocket.id} (user: ${customSocket.userId})`);
-
-      // Handle active calls cleanup
-      const callInfo = findCallBySocketId(customSocket.id);
-      if (callInfo) {
-        const { callId, call } = callInfo;
-        logger.debug(`Cleaning up call ${callId} due to disconnect`);
-
-        try {
-          // Update call status in database FIRST
-          await updateCallStatus(callId, "ended");
-
-          // Remove the active call from memory
-          removeActiveCall(callId);
-
-          // THEN notify the other participant
-          const otherUserId =
-            call.callerSocketId === customSocket.id ? call.receiver : call.caller;
-          emitToUser(io, otherUserId, SOCKET_CALL_PEER_DISCONNECTED, {
-            callId,
-          });
-          emitToUser(io, otherUserId, SOCKET_CALL_ENDED, { callId });
-        } catch (error) {
-          logger.error(
-            { err: error, callId },
-            `Error cleaning up call ${callId}`
-          );
-          // Still remove from memory even if DB update fails
-          removeActiveCall(callId);
-        }
-      }
-
-      // Handle online users cleanup
-      removeUserSocket(customSocket.id);
-
-      const onlineUserIds: string[] = getOnlineUserIds();
-      if (onlineUserIds.length === 0) {
-        logger.debug("No users online.");
-      } else {
-        logger.debug(
-          `Updated online users after disconnect: ${onlineUserIds.join(", ")}`
-        );
-      }
-
-      logger.debug(
-        { users: formatOnlineUsersWithSockets() },
-        "Online users with sockets"
-      );
-      logger.debug(
-        { activeCalls: getActiveCallIds() },
-        "Active calls after disconnect"
-      );
-
-      // Broadcast updated online users list
-      broadcastOnlineUsers(io, SOCKET_ONLINE_USERS);
-    });
+    customSocket.on(SOCKET_DISCONNECT, () => handleDisconnect(io, customSocket));
   });
+
+  // Start periodic cleanup
+  const cleanupInterval = setInterval(() => {
+    const beforeCount = onlineUsers.size;
+    cleanupStaleEntries(STALE_THRESHOLD);
+    const afterCount = onlineUsers.size;
+    
+    // Only broadcast if users were cleaned up
+    if (beforeCount !== afterCount) {
+      const onlineUserIds = getOnlineUserIds();
+      io.emit(SOCKET_ONLINE_USERS, onlineUserIds);
+    }
+  }, CLEANUP_INTERVAL);
+
+  // Store cleanup interval for graceful shutdown
+  (io as any).cleanupInterval = cleanupInterval;
 
   logger.info("Socket.IO server initialized successfully");
   return io;
+};
+
+export const closeSocketServer = async (io: Server): Promise<void> => {
+  return new Promise((resolve) => {
+    // Stop accepting new connections
+    const cleanupInterval = (io as any).cleanupInterval;
+    if (cleanupInterval) clearInterval(cleanupInterval);
+
+    // Disconnect all clients
+    io.disconnectSockets();
+    
+    // Clear memory
+    clearAllMemoryData();
+    
+    // Clear io instance
+    ioInstance = null;
+    
+    // Close server
+    io.close(() => {
+      logger.info("Socket.IO server closed");
+      resolve();
+    });
+  });
 };

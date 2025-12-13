@@ -9,6 +9,7 @@ import {
 import { AuthRequest } from "../types/express.js";
 import Conversation from "../models/conversation.model.js";
 import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
+import { setupConversationRooms } from "../services/socket.service.js";
 
 export const createConversation = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -21,6 +22,10 @@ export const createConversation = catchAsync(
       name,
       isGroup,
     });
+
+    if (created) {
+      setupConversationRooms(conversation, req.user!._id.toString());
+    }
 
     sendSuccessResponse(
       res,

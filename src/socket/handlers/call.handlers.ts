@@ -14,6 +14,7 @@ import {
   getActiveCall,
   updateActiveCall,
   removeActiveCall,
+  shouldThrottleICE,
 } from "../utils/socketHelpers.js";
 import {
   createCall,
@@ -21,6 +22,7 @@ import {
   markCallAsMissed,
 } from "../../services/call.service.js";
 import { CustomSocket } from "../utils/socketAuth.js";
+import { CALL_RING_TIMEOUT, CALL_MAX_DURATION } from "../../config/envConfig.js";
 
 interface CallerInfo {
   _id: string;
@@ -56,9 +58,6 @@ interface CallSignalEventData {
   signal: any;
 }
 
-/**
- * Handle WebRTC call signaling and management
- */
 export const registerCallHandlers = (io: Server, socket: CustomSocket): void => {
   // Handle call initiation
   socket.on(
@@ -114,6 +113,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           callerSocketId: socket.id,
           receiverSocketId: null,
           status: "calling",
+          createdAt: Date.now(),
         });
 
         // Emit to receiver
@@ -130,18 +130,21 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           logger.warn(
             `Receiver ${receiverId} is offline, marking call as missed`
           );
-          // If receiver is offline, mark as missed after a timeout
-          setTimeout(async () => {
+          // Ring timeout
+          const ringTimeout = setTimeout(async () => {
             const call = getActiveCall(callId);
             if (call && call.status === "calling") {
               await markCallAsMissed(callId);
               removeActiveCall(callId);
               emitToUser(io, callerId, SOCKET_CALL_DECLINED, {
                 callId,
-                reason: "offline",
+                reason: "timeout",
               });
             }
-          }, 30000); // 30 seconds timeout
+          }, CALL_RING_TIMEOUT);
+          
+          // Store timeout for cleanup
+          updateActiveCall(callId, { ringTimeout } as any);
         }
       } catch (error) {
         logger.error(
@@ -181,11 +184,32 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         // Update call status in database
         await updateCallStatus(callId, "accepted");
 
+        // Clear ring timeout if exists
+        const existingCall = getActiveCall(callId);
+        if (existingCall && (existingCall as any).ringTimeout) {
+          clearTimeout((existingCall as any).ringTimeout);
+        }
+
         // Update active call data
         updateActiveCall(callId, {
           status: "accepted",
           receiverSocketId: socket.id,
         });
+
+        // Auto-end call after max duration
+        const durationTimeout = setTimeout(async () => {
+          const activeCall = getActiveCall(callId);
+          if (activeCall) {
+            logger.info(`Auto-ending call ${callId} after max duration`);
+            await updateCallStatus(callId, "ended");
+            emitToUser(io, call.caller, SOCKET_CALL_ENDED, { callId });
+            emitToUser(io, call.receiver, SOCKET_CALL_ENDED, { callId });
+            removeActiveCall(callId);
+          }
+        }, CALL_MAX_DURATION);
+        
+        // Store timeout for cleanup
+        updateActiveCall(callId, { durationTimeout } as any);
 
         // Emit to caller
         emitToUser(io, call.caller, SOCKET_CALL_ACCEPTED, {
@@ -219,6 +243,10 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         logger.debug(
           `Call declined: ${callId}, reason: ${reason || "user declined"}`
         );
+
+        // Clear timeouts
+        if ((call as any).ringTimeout) clearTimeout((call as any).ringTimeout);
+        if ((call as any).durationTimeout) clearTimeout((call as any).durationTimeout);
 
         // Update call status in database
         await updateCallStatus(callId, "declined");
@@ -256,6 +284,10 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
 
         logger.debug(`Call ended: ${callId}`);
 
+        // Clear timeouts
+        if ((call as any).ringTimeout) clearTimeout((call as any).ringTimeout);
+        if ((call as any).durationTimeout) clearTimeout((call as any).durationTimeout);
+
         // Update call status in database (will calculate duration)
         await updateCallStatus(callId, "ended");
 
@@ -279,6 +311,20 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
       try {
         if (!callId || !signal) {
           logger.warn("Call signal event missing required data");
+          return;
+        }
+
+        // Validate WebRTC signal structure
+        if (signal.type && !['offer', 'answer'].includes(signal.type)) {
+          if (!signal.candidate) {
+            logger.warn("Invalid WebRTC signal structure");
+            return;
+          }
+        }
+
+        // Throttle ICE candidates
+        if (signal.candidate && shouldThrottleICE(callId)) {
+          logger.warn(`ICE candidate throttled for call ${callId}`);
           return;
         }
 

@@ -45,12 +45,15 @@ export const searchUsersByKeyword = catchAsync(async (req: AuthRequest, res: Res
     req.query.skip as string
   );
 
+  const { sanitizeRegexInput } = await import("../utils/sanitization.js");
+  const sanitizedKeyword = sanitizeRegexInput(keyword);
+
   const [users, total] = await Promise.all([
     searchUsers(keyword, limit, skip),
     User.countDocuments({
       $or: [
-        { name: { $regex: keyword, $options: "i" } },
-        { username: { $regex: keyword, $options: "i" } },
+        { name: { $regex: sanitizedKeyword, $options: "i" } },
+        { username: { $regex: sanitizedKeyword, $options: "i" } },
       ],
     })
   ]);

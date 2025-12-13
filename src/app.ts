@@ -8,7 +8,7 @@ import http from "http";
 
 import { cloudinaryConfig } from "./config/cloudinaryConfig.js";
 import { connectDB } from "./config/dbConfig.js";
-import { initSocketServer } from "./socket/socketServer.js";
+import { initSocketServer, closeSocketServer } from "./socket/socketServer.js";
 import routes from "./routes/index.js";
 import globalErrorHandler from "./middlewares/error.middleware.js";
 import AppError from "./utils/appError.js";
@@ -113,25 +113,54 @@ app.use(globalErrorHandler);
 
 // Create HTTP server and initialize Socket.IO
 const server = http.createServer(app);
-initSocketServer(server);
+const io = initSocketServer(server);
 
 // Start server
 server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
 });
 
-// Handle unhandled rejections
-process.on("unhandledRejection", (err:Error) => {
-  logger.fatal({ error: err.message, stack: err.stack }, "UNHANDLED REJECTION! Shutting down...");
-  server.close(() => {
+// Graceful shutdown handler
+let isShuttingDown = false;
+const gracefulShutdown = async (signal: string) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  logger.info(`${signal} received. Starting graceful shutdown...`);
+  
+  const shutdownTimeout = setTimeout(() => {
+    logger.error("Forced shutdown after 30s timeout");
     process.exit(1);
-  });
+  }, 30000);
+  
+  try {
+    server.close();
+    logger.info("HTTP server stopped accepting connections");
+    
+    await closeSocketServer(io);
+    
+    const { default: mongoose } = await import("mongoose");
+    await mongoose.connection.close();
+    logger.info("Database connection closed");
+    
+    clearTimeout(shutdownTimeout);
+    logger.info("Graceful shutdown completed");
+    process.exit(0);
+  } catch (error) {
+    logger.error({ err: error }, "Error during shutdown");
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
+  }
+};
+
+// Handle unhandled rejections
+process.on("unhandledRejection", (err: Error) => {
+  logger.fatal({ error: err.message, stack: err.stack }, "UNHANDLED REJECTION! Shutting down...");
+  gracefulShutdown("UNHANDLED_REJECTION");
 });
 
 // Handle SIGTERM
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM RECEIVED. Shutting down gracefully");
-  server.close(() => {
-    logger.info("Process terminated!");
-  });
-});
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+// Handle SIGINT
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

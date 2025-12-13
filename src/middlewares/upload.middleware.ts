@@ -2,6 +2,31 @@ import { NextFunction, Response } from "express";
 import AppError from "../utils/appError.js";
 import logger from "../utils/logger.js";
 import { FileRequest } from "../types/express.js";
+import { sanitizeFilename } from "../utils/sanitization.js";
+
+const DANGEROUS_EXTENSIONS = [
+  '.exe', '.bat', '.cmd', '.sh', '.ps1', '.msi', '.app', '.deb', '.rpm',
+  '.dmg', '.pkg', '.run', '.bin', '.com', '.scr', '.vbs', '.js', '.jar'
+];
+
+const FILE_SIZE_LIMITS: Record<string, number> = {
+  image: 10 * 1024 * 1024,    // 10MB
+  video: 50 * 1024 * 1024,    // 50MB
+  document: 25 * 1024 * 1024, // 25MB
+  default: 25 * 1024 * 1024   // 25MB
+};
+
+const MIME_TYPE_EXTENSIONS: Record<string, string[]> = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/gif': ['.gif'],
+  'image/webp': ['.webp'],
+  'video/mp4': ['.mp4'],
+  'video/webm': ['.webm'],
+  'application/pdf': ['.pdf'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+};
 
 interface CloudinaryFile extends Express.Multer.File {
   width?: number;
@@ -9,9 +34,33 @@ interface CloudinaryFile extends Express.Multer.File {
   duration?: number;
 }
 
-/**
- * Middleware to process uploaded files and prepare attachment data
- */
+const validateFile = (file: CloudinaryFile): void => {
+  const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] || '';
+  
+  // Block dangerous extensions
+  if (DANGEROUS_EXTENSIONS.includes(ext)) {
+    throw new AppError(`File type ${ext} is not allowed`, 400);
+  }
+  
+  // Validate MIME type matches extension
+  const allowedExts = MIME_TYPE_EXTENSIONS[file.mimetype];
+  if (allowedExts && !allowedExts.includes(ext)) {
+    throw new AppError('File extension does not match MIME type', 400);
+  }
+  
+  // Validate file size
+  let sizeLimit = FILE_SIZE_LIMITS.default;
+  if (file.mimetype.startsWith('image/')) sizeLimit = FILE_SIZE_LIMITS.image;
+  else if (file.mimetype.startsWith('video/')) sizeLimit = FILE_SIZE_LIMITS.video;
+  else if (file.mimetype.includes('pdf') || file.mimetype.includes('document')) {
+    sizeLimit = FILE_SIZE_LIMITS.document;
+  }
+  
+  if (file.size > sizeLimit) {
+    throw new AppError(`File size exceeds limit of ${sizeLimit / 1024 / 1024}MB`, 400);
+  }
+};
+
 export const processUploadedFiles = (
   req: FileRequest,
   res: Response,
@@ -23,12 +72,14 @@ export const processUploadedFiles = (
     if (req.files) {
       if (Array.isArray(req.files)) {
         // Multiple files via upload.array
+        req.files.forEach(validateFile);
         attachments = req.files.map((file: CloudinaryFile) =>
           createAttachment(file)
         );
       } else {
         // Multiple fields via upload.fields
         for (const field in req.files) {
+          req.files[field].forEach(validateFile);
           attachments.push(
             ...req.files[field].map((file: CloudinaryFile) =>
               createAttachment(file)
@@ -82,7 +133,7 @@ const createAttachment = (file: CloudinaryFile) => {
   const attachment: any = {
     url: file.path,
     publicId: file.filename,
-    originalName: file.originalname,
+    originalName: sanitizeFilename(file.originalname),
     mimeType: file.mimetype,
     size: file.size,
   };

@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import User from "../models/user.model.js";
 import AppError from "../utils/appError.js";
 import { IUser } from "../types/models.js";
+import { sanitizeRegexInput } from "../utils/sanitization.js";
 
 export const findUserById = async (id: string | Types.ObjectId): Promise<IUser> => {
   const user = await User.findById(id);
@@ -31,10 +32,12 @@ export const searchUsers = async (
   limit?: number,
   skip?: number
 ): Promise<IUser[]> => {
+  const sanitizedKeyword = sanitizeRegexInput(keyword);
+  
   let query = User.find({
     $or: [
-      { name: { $regex: keyword, $options: "i" } },
-      { username: { $regex: keyword, $options: "i" } },
+      { name: { $regex: sanitizedKeyword, $options: "i" } },
+      { username: { $regex: sanitizedKeyword, $options: "i" } },
     ],
   });
 
@@ -54,6 +57,7 @@ export const updateUserStatus = async (
   status: string
 ): Promise<IUser> => {
   if (!status) throw new AppError("Status field is required", 400);
+  if (status.length > 200) throw new AppError("Status exceeds 200 characters", 400);
 
   const updatedUser = await User.findByIdAndUpdate(
     userId,
@@ -67,6 +71,7 @@ export const updateUserStatus = async (
 
 export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
   if (!username) throw new AppError("Username is required", 400);
+  if (username.length > 50) throw new AppError("Username too long", 400);
   
   const existingUser = await User.findOne({ username });
   return !existingUser;

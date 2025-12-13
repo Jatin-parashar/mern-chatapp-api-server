@@ -6,9 +6,6 @@ import { AuthRequest } from "../types/express.js";
 import Call from "../models/call.model.js";
 import { parsePaginationParams, createPaginationResult } from "../utils/pagination.js";
 
-/**
- * Get call history for the authenticated user
- */
 export const getCallHistory = catchAsync(async (req: AuthRequest, res: Response) => {
   const { limit, skip } = parsePaginationParams(
     req.query.limit as string,
@@ -27,9 +24,6 @@ export const getCallHistory = catchAsync(async (req: AuthRequest, res: Response)
   sendSuccessResponse(res, 200, "Call history fetched successfully", result);
 });
 
-/**
- * Get specific call details by callId
- */
 export const getCallById = catchAsync(async (req: AuthRequest, res: Response) => {
   const call = await getCall(req.params.callId);
 

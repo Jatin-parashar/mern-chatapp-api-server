@@ -1,17 +1,7 @@
-/**
- * Common utility functions used across the application
- */
-
-/**
- * Checks if a value is a valid MongoDB ObjectId
- */
 export const isValidObjectId = (id: string): boolean => {
   return /^[0-9a-fA-F]{24}$/.test(id);
 };
 
-/**
- * Safely converts value to string
- */
 export const toString = (value: unknown): string => {
   if (value && typeof (value as any).toString === 'function') {
     return (value as any).toString();
@@ -19,9 +9,6 @@ export const toString = (value: unknown): string => {
   return String(value);
 };
 
-/**
- * Generates a unique ID for calls
- */
 export const generateCallId = (): string => {
   return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
@@ -38,9 +25,6 @@ interface User extends UserForSocket {
   [key: string]: any;
 }
 
-/**
- * Formats user data for socket emissions (removes sensitive info)
- */
 export const formatUserForSocket = (user: User | null): UserForSocket | null => {
   if (!user) return null;
   
@@ -53,24 +37,15 @@ export const formatUserForSocket = (user: User | null): UserForSocket | null => 
   };
 };
 
-/**
- * Checks if an array contains a specific userId
- */
 export const arrayIncludesUserId = (array: any[], userId: string): boolean => {
   if (!Array.isArray(array)) return false;
   const userIdStr = toString(userId);
   return array.some(item => toString(item) === userIdStr || toString(item._id) === userIdStr);
 };
 
-/**
- * Delay helper for async operations
- */
 export const delay = (ms: number): Promise<void> => 
   new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Safe JSON parse with fallback
- */
 export const safeJsonParse = <T = any>(str: string, fallback: T | null = null): T | null => {
   try {
     return JSON.parse(str);
@@ -79,9 +54,6 @@ export const safeJsonParse = <T = any>(str: string, fallback: T | null = null): 
   }
 };
 
-/**
- * Remove duplicates from array of objects by key
- */
 export const uniqueByKey = <T extends Record<string, any>>(
   array: T[], 
   key: keyof T

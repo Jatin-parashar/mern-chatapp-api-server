@@ -13,14 +13,6 @@ declare global {
   }
 }
 
-/**
- * Request logging middleware that tracks every request with:
- * - Unique request ID for tracing
- * - Request details (method, path, IP)
- * - User information (if authenticated)
- * - Response time
- * - Status code
- */
 export const requestLogger = (
   req: Request,
   res: Response,
@@ -64,9 +56,6 @@ export const requestLogger = (
   next();
 };
 
-/**
- * Helper to get current request ID from anywhere in the request cycle
- */
 export const getRequestId = (req: Request): string => {
   return req.requestId || 'unknown';
 };

@@ -1,12 +1,11 @@
 import { Server } from "socket.io";
 import logger from "../../utils/logger.js";
 
-/**
- * Socket helper utilities for managing connections and emissions
- */
-
 // Store online users: Map<userId, socketId[]>
 export const onlineUsers = new Map<string, string[]>();
+
+// Track last seen timestamp for cleanup
+export const userLastSeen = new Map<string, number>();
 
 // Store active calls: Map<callId, callData>
 export interface ActiveCallData {
@@ -16,13 +15,32 @@ export interface ActiveCallData {
   callerSocketId: string;
   receiverSocketId: string | null;
   status: string;
+  createdAt: number;
+  iceCount?: number;
+  lastIceTime?: number;
 }
 
 export const activeCalls = new Map<string, ActiveCallData>();
 
-/**
- * Format online users map for logging
- */
+// ICE candidate throttling
+const ICE_THROTTLE_LIMIT = 50;
+const ICE_THROTTLE_WINDOW = 1000; // 1 second
+
+export const shouldThrottleICE = (callId: string): boolean => {
+  const call = activeCalls.get(callId);
+  if (!call) return true;
+
+  const now = Date.now();
+  if (!call.lastIceTime || now - call.lastIceTime > ICE_THROTTLE_WINDOW) {
+    call.iceCount = 1;
+    call.lastIceTime = now;
+    return false;
+  }
+
+  call.iceCount = (call.iceCount || 0) + 1;
+  return call.iceCount > ICE_THROTTLE_LIMIT;
+};
+
 export const formatOnlineUsersWithSockets = (): Record<string, string[]> => {
   const result: Record<string, string[]> = {};
   for (const [userId, sockets] of onlineUsers.entries()) {
@@ -31,16 +49,10 @@ export const formatOnlineUsersWithSockets = (): Record<string, string[]> => {
   return result;
 };
 
-/**
- * Get all socket IDs for a user
- */
 export const getUserSocketIds = (userId: string): string[] => {
   return onlineUsers.get(userId) || [];
 };
 
-/**
- * Add a socket for a user
- */
 export const addUserSocket = (userId: string, socketId: string): void => {
   if (onlineUsers.has(userId)) {
     const sockets = onlineUsers.get(userId)!;
@@ -50,12 +62,10 @@ export const addUserSocket = (userId: string, socketId: string): void => {
   } else {
     onlineUsers.set(userId, [socketId]);
   }
+  userLastSeen.set(socketId, Date.now());
   logger.debug(`Socket ${socketId} added for user ${userId}`);
 };
 
-/**
- * Remove a socket for a user
- */
 export const removeUserSocket = (socketId: string): string | undefined => {
   let removedUserId: string | undefined = undefined;
   
@@ -78,23 +88,14 @@ export const removeUserSocket = (socketId: string): string | undefined => {
   return removedUserId;
 };
 
-/**
- * Get all online user IDs
- */
 export const getOnlineUserIds = (): string[] => {
   return Array.from(onlineUsers.keys());
 };
 
-/**
- * Check if a user is online
- */
 export const isUserOnline = (userId: string): boolean => {
   return onlineUsers.has(userId);
 };
 
-/**
- * Emit event to all sockets of a specific user
- */
 export const emitToUser = (
   io: Server, 
   userId: string, 
@@ -117,9 +118,6 @@ export const emitToUser = (
   return true;
 };
 
-/**
- * Emit event to multiple users
- */
 export const emitToUsers = (
   io: Server, 
   userIds: string[], 
@@ -131,33 +129,21 @@ export const emitToUsers = (
   });
 };
 
-/**
- * Emit online users list to all connected clients
- */
 export const broadcastOnlineUsers = (io: Server, socketEvent: string): void => {
   const onlineUserIds = getOnlineUserIds();
   io.emit(socketEvent, onlineUserIds);
   logger.debug(`Broadcasted ${onlineUserIds.length} online users`);
 };
 
-/**
- * Store active call data
- */
 export const storeActiveCall = (callId: string, callData: ActiveCallData): void => {
   activeCalls.set(callId, callData);
   logger.debug(`Active call stored: ${callId}`);
 };
 
-/**
- * Get active call data
- */
 export const getActiveCall = (callId: string): ActiveCallData | undefined => {
   return activeCalls.get(callId);
 };
 
-/**
- * Update active call data
- */
 export const updateActiveCall = (
   callId: string, 
   updates: Partial<ActiveCallData>
@@ -171,9 +157,6 @@ export const updateActiveCall = (
   return null;
 };
 
-/**
- * Remove active call
- */
 export const removeActiveCall = (callId: string): boolean => {
   const removed = activeCalls.delete(callId);
   if (removed) {
@@ -182,9 +165,6 @@ export const removeActiveCall = (callId: string): boolean => {
   return removed;
 };
 
-/**
- * Find call by socket ID
- */
 export const findCallBySocketId = (
   socketId: string
 ): { callId: string; call: ActiveCallData } | null => {
@@ -196,9 +176,46 @@ export const findCallBySocketId = (
   return null;
 };
 
-/**
- * Get all active call IDs
- */
 export const getActiveCallIds = (): string[] => {
   return Array.from(activeCalls.keys());
+};
+
+export const cleanupStaleEntries = (staleThreshold: number): void => {
+  const now = Date.now();
+
+  // Clean stale user sockets
+  let cleanedSockets = 0;
+  for (const [socketId, lastSeen] of userLastSeen.entries()) {
+    if (now - lastSeen > staleThreshold) {
+      userLastSeen.delete(socketId);
+      removeUserSocket(socketId);
+      cleanedSockets++;
+    }
+  }
+
+  // Clean stale calls
+  let cleanedCalls = 0;
+  for (const [callId, call] of activeCalls.entries()) {
+    if (now - call.createdAt > staleThreshold) {
+      activeCalls.delete(callId);
+      cleanedCalls++;
+    }
+  }
+
+  if (cleanedSockets > 0 || cleanedCalls > 0) {
+    logger.info(`Cleanup: ${cleanedSockets} sockets, ${cleanedCalls} calls`);
+  }
+};
+
+export const clearAllMemoryData = (): void => {
+  // Clear all call timeouts before clearing
+  for (const [, call] of activeCalls.entries()) {
+    if ((call as any).ringTimeout) clearTimeout((call as any).ringTimeout);
+    if ((call as any).durationTimeout) clearTimeout((call as any).durationTimeout);
+  }
+  
+  onlineUsers.clear();
+  userLastSeen.clear();
+  activeCalls.clear();
+  logger.info("All in-memory data cleared");
 };

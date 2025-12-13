@@ -10,9 +10,6 @@ interface TypingEventData {
   conversationId: string;
 }
 
-/**
- * Handle typing indicators for conversations
- */
 export const registerTypingHandlers = (io: Server, socket: CustomSocket): void => {
   
   // Handle typing start

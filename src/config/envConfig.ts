@@ -26,3 +26,7 @@ export const DATABASE_URI = process.env.DATABASE_URI!;
 export const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME!;
 export const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY!;
 export const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET!;
+export const CALL_RING_TIMEOUT = parseInt(process.env.CALL_RING_TIMEOUT || "45000");
+export const CALL_MAX_DURATION = parseInt(process.env.CALL_MAX_DURATION || "14400000"); // 4 hours
+export const CLEANUP_INTERVAL = parseInt(process.env.CLEANUP_INTERVAL || "300000"); // 5 minutes
+export const STALE_THRESHOLD = parseInt(process.env.STALE_THRESHOLD || "1800000"); // 30 minutes
