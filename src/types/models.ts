@@ -27,11 +27,9 @@ export interface IMessage extends Document {
   attachments?: Array<{
     url: string;
     publicId: string;
-    fileName: string;
-    fileSize: number;
+    originalName: string;
     mimeType: string;
-    dimensions?: { width: number; height: number };
-    duration?: number;
+    size: number;
   }>;
   replyTo?: Types.ObjectId;
   seenBy: Types.ObjectId[];
