@@ -31,6 +31,7 @@ const messageSchema = new Schema<IMessage>(
       },
     ],
     replyTo: { type: Schema.Types.ObjectId, ref: "Message" },
+    deliveredTo: [{ type: Schema.Types.ObjectId, ref: "User" }],
     seenBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   {
@@ -41,6 +42,7 @@ const messageSchema = new Schema<IMessage>(
 // Add compound index for common queries
 messageSchema.index({ conversationId: 1, createdAt: 1 });
 messageSchema.index({ conversationId: 1, sender: 1 });
+messageSchema.index({ conversationId: 1, deliveredTo: 1 });
 
 const Message = mongoose.models.Message || model("Message", messageSchema);
 export default Message;

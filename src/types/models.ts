@@ -32,6 +32,7 @@ export interface IMessage extends Document {
     size: number;
   }>;
   replyTo?: Types.ObjectId;
+  deliveredTo: Types.ObjectId[];
   seenBy: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;

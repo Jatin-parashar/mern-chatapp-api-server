@@ -213,3 +213,20 @@ export const markConversationMessagesSeen = async (
 
   return messageIds.length;
 };
+
+export const markPendingMessagesAsDelivered = async (
+  userId: string | Types.ObjectId
+): Promise<number> => {
+  validateObjectId(userId, "User ID");
+
+  const result = await Message.updateMany(
+    {
+      sender: { $ne: userId },
+      deliveredTo: { $ne: userId },
+    },
+    { $addToSet: { deliveredTo: userId } }
+  );
+
+  logger.debug(`${result.modifiedCount} messages marked as delivered to user ${userId}`);
+  return result.modifiedCount;
+};

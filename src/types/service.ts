@@ -34,6 +34,13 @@ export interface MessageWithPopulatedFields {
   messageType?: string;
   attachments?: any[];
   replyTo?: any;
+  deliveredTo: Array<{
+    _id: string;
+    name: string;
+    username: string;
+    profilePic?: string;
+    status?: string;
+  }>;
   seenBy: Array<{
     _id: string;
     name: string;
