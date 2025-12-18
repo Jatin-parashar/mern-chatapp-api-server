@@ -216,17 +216,28 @@ export const markConversationMessagesSeen = async (
 
 export const markPendingMessagesAsDelivered = async (
   userId: string | Types.ObjectId
-): Promise<number> => {
+): Promise<{ messageId: string; conversationId: string }[]> => {
   validateObjectId(userId, "User ID");
 
-  const result = await Message.updateMany(
+  const messages = await Message.find(
     {
       sender: { $ne: userId },
       deliveredTo: { $ne: userId },
     },
-    { $addToSet: { deliveredTo: userId } }
-  );
+    { _id: 1, conversationId: 1 }
+  ).lean();
 
-  logger.debug(`${result.modifiedCount} messages marked as delivered to user ${userId}`);
-  return result.modifiedCount;
+  if (messages.length > 0) {
+    const messageIds = messages.map(m => m._id);
+    await Message.updateMany(
+      { _id: { $in: messageIds } },
+      { $addToSet: { deliveredTo: userId } }
+    );
+    logger.debug(`${messages.length} messages marked as delivered to user ${userId}`);
+  }
+
+  return messages.map(m => ({
+    messageId: m._id.toString(),
+    conversationId: m.conversationId.toString(),
+  }));
 };

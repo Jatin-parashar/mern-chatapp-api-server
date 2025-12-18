@@ -10,6 +10,7 @@ import {
 } from "../utils/socketHelpers.js";
 import { CustomSocket } from "../utils/socketAuth.js";
 import { markPendingMessagesAsDelivered } from "../../services/message.service.js";
+import { emitMessageDelivered } from "../../services/socket.service.js";
 
 export const registerPresenceHandlers = (io: Server, socket: CustomSocket): void => {
   
@@ -29,10 +30,16 @@ export const registerPresenceHandlers = (io: Server, socket: CustomSocket): void
       // Join user's personal room for direct messages
       socket.join(userId);
       
-      // Mark pending messages as delivered
-      markPendingMessagesAsDelivered(userId).catch(err => 
-        logger.error({ err, userId }, "Failed to mark messages as delivered")
-      );
+      // Mark pending messages as delivered and emit events
+      markPendingMessagesAsDelivered(userId)
+        .then(deliveredMessages => {
+          deliveredMessages.forEach(({ messageId, conversationId }) => {
+            emitMessageDelivered(conversationId, messageId, userId);
+          });
+        })
+        .catch(err => 
+          logger.error({ err, userId }, "Failed to mark messages as delivered")
+        );
       
       const onlineUserIds = getOnlineUserIds();
       logger.debug({ userId, socketId: socket.id, onlineCount: onlineUserIds.length }, "User setup completed");

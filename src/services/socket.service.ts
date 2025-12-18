@@ -4,6 +4,7 @@ import {
   SOCKET_MESSAGE_RECEIVED, 
   SOCKET_MESSAGE_SEEN_UPDATE, 
   SOCKET_CONVERSATION_MESSAGES_SEEN_UPDATE,
+  SOCKET_MESSAGE_DELIVERED_UPDATE,
   SOCKET_NEW_CONVERSATION_RECEIVED 
 } from "../socket/utils/socketConstants.js";
 import { Types } from "mongoose";
@@ -29,6 +30,15 @@ export const emitConversationMessagesSeen = (conversationId: string, userId: str
   const io = getIO();
   io?.to(conversationId).emit(SOCKET_CONVERSATION_MESSAGES_SEEN_UPDATE, {
     conversationId,
+    userId,
+  });
+};
+
+export const emitMessageDelivered = (conversationId: string, messageId: string, userId: string): void => {
+  const io = getIO();
+  io?.to(conversationId).emit(SOCKET_MESSAGE_DELIVERED_UPDATE, {
+    conversationId,
+    messageId,
     userId,
   });
 };
