@@ -638,12 +638,23 @@ Let others know you stopped typing.
 
 ---
 
+#### **Event:** `messageDeliveredUpdate` (Server → Client)
+Your message was delivered!
+
+**Payload:** `{ conversationId, messageId, userId }`
+
+**When:** Recipient comes online and message is marked as delivered
+
+**Use it:** Show gray double check marks (delivered but not read)
+
+---
+
 #### **Event:** `messageSeenUpdate` (Server → Client)
 Someone read your message!
 
 **Payload:** `{ conversationId, messageId, userId }`
 
-**Use it:** Show double check marks or "Read by..." in UI
+**Use it:** Show blue double check marks or "Read by..." in UI
 
 ---
 
@@ -830,6 +841,7 @@ Here's what the data looks like in MongoDB:
     size: number              // File size in bytes
   }],
   replyTo: ObjectId,          // Message being replied to
+  deliveredTo: ObjectId[],    // Who received this message (came online)
   seenBy: ObjectId[],         // Who's seen this message
   createdAt: Date,
   updatedAt: Date

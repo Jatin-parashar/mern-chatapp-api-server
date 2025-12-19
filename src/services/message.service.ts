@@ -237,7 +237,7 @@ export const markPendingMessagesAsDelivered = async (
   }
 
   return messages.map(m => ({
-    messageId: m._id.toString(),
-    conversationId: m.conversationId.toString(),
+    messageId: (m._id as Types.ObjectId).toString(),
+    conversationId: (m.conversationId as Types.ObjectId).toString(),
   }));
 };
