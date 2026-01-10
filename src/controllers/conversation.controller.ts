@@ -44,7 +44,10 @@ export const getUserConversations = catchAsync(
       Conversation, 
       req.query, 
       { 
-        filter: { participants: req.user!._id },
+        filter: { 
+          participants: req.user!._id,
+          lastMessage: { $ne: null }
+        },
         populate: conversationPopulateOptions,
         sort: { updatedAt: -1 },
         lean: true

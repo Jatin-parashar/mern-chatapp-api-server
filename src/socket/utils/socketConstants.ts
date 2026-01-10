@@ -18,6 +18,7 @@ export const SOCKET_CONVERSATION_MESSAGES_SEEN_UPDATE =
   "conversationMessageSeenUpdate";
 export const SOCKET_MESSAGE_DELIVERED = "messageDelivered";
 export const SOCKET_MESSAGE_DELIVERED_UPDATE = "messageDeliveredUpdate";
+export const SOCKET_BULK_MESSAGES_DELIVERED = "bulkMessagesDelivered";
 export const SOCKET_ONLINE_USERS = "onlineUsers";
 export const SOCKET_CALL_INITIATED = "callInitiated";
 export const SOCKET_CALL_RECEIVED = "callReceived";

@@ -19,26 +19,33 @@ type CloudinaryResourceType = "image" | "video" | "raw" | "auto";
 // Storage for chat attachments (images, videos, documents, etc.)
 export const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: async (req, file) => {
-    let folder = "chatAppUploads";
-    let resourceType: CloudinaryResourceType = "auto"; // Automatically detect resource type
+  params: async (req: any, file) => {
+    const conversationId = req.body.conversationId || 'unknown';
+    const userId = req.user?._id?.toString() || 'unknown';
+    const messageId = req.body.messageId || Date.now().toString();
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    
+    let folder = `chatAppUploads/conversations/${conversationId}/${year}/${month}`;
+    let resourceType: CloudinaryResourceType = "auto";
     let allowedFormats = [];
+    let fileType = 'file';
 
     // Determine folder and settings based on file type
     if (file.mimetype.startsWith("image/")) {
-      folder = "chatAppUploads/images";
       allowedFormats = ["jpg", "png", "jpeg", "gif", "webp", "svg"];
+      fileType = 'image';
     } else if (file.mimetype.startsWith("video/")) {
-      folder = "chatAppUploads/videos";
       resourceType = "video";
       allowedFormats = ["mp4", "mov", "avi", "mkv", "webm"];
+      fileType = 'video';
     } else if (file.mimetype.startsWith("audio/")) {
-      folder = "chatAppUploads/audio";
-      resourceType = "video"; // Cloudinary uses 'video' for audio too
+      resourceType = "video";
       allowedFormats = ["mp3", "wav", "ogg", "m4a"];
+      fileType = 'audio';
     } else {
-      folder = "chatAppUploads/documents";
-      resourceType = "raw"; // For documents and other files
+      resourceType = "raw";
       allowedFormats = [
         "pdf",
         "doc",
@@ -51,12 +58,47 @@ export const storage = new CloudinaryStorage({
         "zip",
         "rar",
       ];
+      fileType = 'document';
     }
 
     return {
       folder: folder,
       allowed_formats: allowedFormats,
       resource_type: resourceType,
+      tags: [
+        `conversation:${conversationId}`,
+        `user:${userId}`,
+        `type:${fileType}`,
+        `year:${year}`,
+        `month:${month}`
+      ],
+      context: {
+        conversationId: conversationId,
+        messageId: messageId,
+        senderId: userId,
+        uploadDate: now.toISOString(),
+        fileType: fileType
+      }
+    };
+  },
+});
+
+// Storage for profile pictures
+export const profileStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req: any) => {
+    const userId = req.body.username || 'unknown';
+    return {
+      folder: `chatAppUploads/users/${userId}`,
+      allowed_formats: ["jpg", "png", "jpeg", "gif", "webp"],
+      resource_type: "image",
+      public_id: 'avatar',
+      tags: [`user:${userId}`, 'type:avatar'],
+      context: {
+        userId: userId,
+        uploadType: 'profile',
+        uploadDate: new Date().toISOString()
+      }
     };
   },
 });
@@ -69,13 +111,20 @@ export const upload = multer({
   },
 });
 
+export const uploadProfile = multer({
+  storage: profileStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB for profiles
+  },
+});
+
 // Add helper to detect resource type from publicId
 const getResourceTypeFromPublicId = (
   publicId: string
 ): CloudinaryResourceType => {
-  if (publicId.includes("/videos/")) return "video";
-  if (publicId.includes("/audio/")) return "video"; // Cloudinary uses 'video' for audio
-  if (publicId.includes("/documents/")) return "raw";
+  if (publicId.includes("/users/")) return "image";
+  if (publicId.match(/\.(mp4|mov|avi|mkv|webm|mp3|wav|ogg|m4a)$/)) return "video";
+  if (publicId.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/)) return "raw";
   return "image";
 };
 
@@ -85,9 +134,7 @@ export const deleteFromCloudinary = async (
   resourceType?: CloudinaryResourceType
 ): Promise<boolean> => {
   try {
-    // Auto-detect if not provided
     const type = resourceType || getResourceTypeFromPublicId(publicId);
-
     await cloudinary.uploader.destroy(publicId, {
       resource_type: type,
     });

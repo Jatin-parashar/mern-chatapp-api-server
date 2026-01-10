@@ -53,6 +53,39 @@ const findExistingDirectChat = async (
     .lean<ConversationWithPopulatedFields>();
 };
 
+const findOrCreateDirectChat = async (
+  participants: Array<string | Types.ObjectId>
+): Promise<{ conversation: ConversationWithPopulatedFields; created: boolean }> => {
+  const sortedParticipants = participants.map(p => p.toString()).sort();
+  
+  const existing = await Conversation.findOne({
+    isGroup: false,
+    participants: { $all: sortedParticipants, $size: 2 },
+  }).populate(conversationPopulateOptions).lean<ConversationWithPopulatedFields>();
+  
+  if (existing) {
+    return { conversation: existing, created: false };
+  }
+
+  try {
+    const conversation = await Conversation.create({
+      isGroup: false,
+      participants: sortedParticipants,
+    });
+    const populated = await conversation.populate(conversationPopulateOptions);
+    return { conversation: populated.toObject() as ConversationWithPopulatedFields, created: true };
+  } catch (error: any) {
+    if (error.code === 11000) {
+      const retry = await Conversation.findOne({
+        isGroup: false,
+        participants: { $all: sortedParticipants, $size: 2 },
+      }).populate(conversationPopulateOptions).lean<ConversationWithPopulatedFields>();
+      return { conversation: retry!, created: false };
+    }
+    throw error;
+  }
+};
+
 export const validateUserBelongsToConversation = (
   conversation: IConversation | ConversationWithPopulatedFields,
   userId: string | Types.ObjectId
@@ -83,42 +116,25 @@ export const handleConversationCreation = async ({
   conversation: ConversationWithPopulatedFields; 
   created: boolean 
 }> => {
-  // Validate inputs
   validateParticipants(participants, userId);
 
   if (isGroup) {
     validateGroup(participants, name!);
-  } else {
-    validateDirect(participants);
-    
-    // Check if direct chat already exists
-    const existing = await findExistingDirectChat(participants);
-    if (existing) {
-      logger.debug(`Existing direct chat found: ${existing._id}`);
-      return { conversation: existing, created: false };
-    }
+    const conversation = await Conversation.create({
+      isGroup: true,
+      participants,
+      name: name!.trim(),
+      admins: [userId],
+    });
+    const populated = await conversation.populate(conversationPopulateOptions);
+    logger.debug(`New group conversation created: ${conversation._id}`);
+    return { conversation: populated.toObject() as ConversationWithPopulatedFields, created: true };
   }
 
-  // Create new conversation
-  const conversationData: any = {
-    isGroup,
-    participants,
-  };
-  
-  if (isGroup) {
-    conversationData.name = name!.trim();
-    conversationData.admins = [userId];
-  }
-
-  const conversation = await Conversation.create(conversationData);
-  const populatedConversation = await conversation
-    .populate(conversationPopulateOptions);
-
-  logger.debug(`New ${isGroup ? 'group' : 'direct'} conversation created: ${conversation._id}`);
-  return { 
-    conversation: populatedConversation.toObject() as ConversationWithPopulatedFields, 
-    created: true 
-  };
+  validateDirect(participants);
+  const result = await findOrCreateDirectChat(participants);
+  logger.debug(`Direct chat ${result.created ? 'created' : 'found'}: ${result.conversation._id}`);
+  return result;
 };
 
 // This function is now handled by queryBuilder utility in controllers

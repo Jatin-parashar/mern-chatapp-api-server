@@ -14,7 +14,7 @@ const conversationSchema = new Schema<IConversation>(
   }
 );
 
-// ✅ Add indexes for common queries
+// Add indexes for common queries
 conversationSchema.index({ participants: 1 });
 conversationSchema.index({ participants: 1, updatedAt: -1 });
 conversationSchema.index({ isGroup: 1, participants: 1 });

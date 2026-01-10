@@ -30,3 +30,5 @@ export const CALL_RING_TIMEOUT = parseInt(process.env.CALL_RING_TIMEOUT || "4500
 export const CALL_MAX_DURATION = parseInt(process.env.CALL_MAX_DURATION || "14400000"); // 4 hours
 export const CLEANUP_INTERVAL = parseInt(process.env.CLEANUP_INTERVAL || "300000"); // 5 minutes
 export const STALE_THRESHOLD = parseInt(process.env.STALE_THRESHOLD || "1800000"); // 30 minutes
+export const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || "1h";
+export const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || "7d";

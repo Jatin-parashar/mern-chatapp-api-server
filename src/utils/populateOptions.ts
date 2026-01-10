@@ -2,6 +2,7 @@ export const userFields = "_id name username profilePic status";
 
 export const messagePopulateOptions = [
   { path: "sender", select: userFields },
+  { path: "deliveredTo", select: userFields },
   { path: "seenBy", select: userFields },
   { 
     path: "replyTo", 

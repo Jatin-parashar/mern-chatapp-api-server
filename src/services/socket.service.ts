@@ -17,6 +17,22 @@ export const emitNewMessage = (userId: string, conversationId: string, message: 
   }
 };
 
+export const notifyNewConversation = (conversation: any, excludeUserId: string): void => {
+  const io = getIO();
+  if (!io) return;
+
+  conversation.participants.forEach((participant: any) => {
+    const participantId = (participant._id as Types.ObjectId).toString();
+    if (participantId !== excludeUserId) {
+      const socketIds = onlineUsers.get(participantId);
+      socketIds?.forEach((socketId) => {
+        const socket = io.sockets.sockets.get(socketId);
+        socket?.emit(SOCKET_NEW_CONVERSATION_RECEIVED, { conversation });
+      });
+    }
+  });
+};
+
 export const emitMessageSeen = (conversationId: string, messageId: string, userId: string): void => {
   const io = getIO();
   io?.to(conversationId).emit(SOCKET_MESSAGE_SEEN_UPDATE, {
@@ -43,6 +59,19 @@ export const emitMessageDelivered = (conversationId: string, messageId: string, 
   });
 };
 
+export const emitBulkMessagesDelivered = (deliveries: Map<string, string[]>, userId: string): void => {
+  const io = getIO();
+  if (!io) return;
+
+  deliveries.forEach((messageIds, conversationId) => {
+    io.to(conversationId).emit(SOCKET_MESSAGE_DELIVERED_UPDATE, {
+      conversationId,
+      messageIds,
+      userId,
+    });
+  });
+};
+
 export const setupConversationRooms = (conversation: any, creatorId: string): void => {
   const io = getIO();
   if (!io) return;
@@ -57,10 +86,6 @@ export const setupConversationRooms = (conversation: any, creatorId: string): vo
       const socket = io.sockets.sockets.get(socketId);
       if (socket) {
         socket.join(conversationId);
-        
-        if (participantId !== creatorId) {
-          socket.emit(SOCKET_NEW_CONVERSATION_RECEIVED, { conversation });
-        }
       }
     });
   });

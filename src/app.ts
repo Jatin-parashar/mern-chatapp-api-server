@@ -13,7 +13,6 @@ import routes from "./routes/index.js";
 import globalErrorHandler from "./middlewares/error.middleware.js";
 import AppError from "./utils/appError.js";
 import { PORT } from "./config/envConfig.js";
-import { apiLimiter } from "./middlewares/rateLimit.middleware.js";
 import { requestLogger } from "./middlewares/requestLogger.middleware.js";
 
 // Handle uncaught exceptions
@@ -101,7 +100,7 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use("/api/v1", /* apiLimiter, */ routes);
+app.use("/api/v1", routes);
 
 // Handle undefined routes
 app.all("/{*any}", (req, res, next) => {

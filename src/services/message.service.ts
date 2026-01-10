@@ -96,12 +96,17 @@ export const createMessageInConversation = async (
     messageObj.replyTo = replyTo;
   }
 
-  const message = await Message.create(messageObj);
+  // Create message and update conversation in parallel
+  const [message] = await Promise.all([
+    Message.create(messageObj),
+    Conversation.findByIdAndUpdate(conversationId, {
+      updatedAt: new Date(),
+    }),
+  ]);
 
-  // Update conversation's last message
+  // Update lastMessage after creation
   await Conversation.findByIdAndUpdate(conversationId, {
     lastMessage: message._id,
-    updatedAt: new Date(),
   });
 
   const populatedMessage = await message.populate(messagePopulateOptions);
@@ -163,30 +168,51 @@ export const fetchMessagesByCursor = async (
 export const markMessageAsSeen = async (
   messageId: string | Types.ObjectId,
   userId: string | Types.ObjectId
-): Promise<boolean> => {
+): Promise<{ conversationId: string; alreadySeen: boolean }> => {
   validateObjectId(messageId, "Message ID");
 
-  const message = await Message.findById(messageId);
-  if (!message) {
-    throwNotFound("Message");
-  }
-
-  // Check if already seen
-  const userIdStr = toString(userId);
-  const alreadySeen = message.seenBy.some(
-    (u: any) => toString(u) === userIdStr
+  const result = await Message.findOneAndUpdate(
+    {
+      _id: messageId,
+      sender: { $ne: userId }, // Can't mark own message as seen
+      seenBy: { $ne: userId },
+    },
+    { $addToSet: { seenBy: userId } },
+    { new: false, projection: { conversationId: 1 } }
   );
 
-  if (alreadySeen) {
-    return true;
+  if (!result) {
+    const message = await Message.findById(messageId, { conversationId: 1, sender: 1, seenBy: 1 });
+    if (!message) {
+      throwNotFound("Message");
+    }
+    
+    // Check if user is trying to mark their own message
+    if (toString(message.sender) === toString(userId)) {
+      throw new AppError("Cannot mark your own message as seen", 400);
+    }
+    
+    return { conversationId: message.conversationId.toString(), alreadySeen: true };
   }
 
-  await Message.findByIdAndUpdate(messageId, {
-    $addToSet: { seenBy: userId },
-  });
+  // Validate user belongs to conversation
+  const conversation = await Conversation.findById(result.conversationId, { participants: 1 });
+  if (!conversation) {
+    throw new AppError("Conversation not found", 404);
+  }
+  
+  const isParticipant = conversation.participants.some(
+    (p: any) => toString(p) === toString(userId)
+  );
+  
+  if (!isParticipant) {
+    // Rollback the update
+    await Message.findByIdAndUpdate(messageId, { $pull: { seenBy: userId } });
+    throw new AppError("You are not a participant in this conversation", 403);
+  }
 
   logger.debug(`Message ${messageId} marked as seen by user ${userId}`);
-  return false;
+  return { conversationId: result.conversationId.toString(), alreadySeen: false };
 };
 
 export const markConversationMessagesSeen = async (
@@ -195,28 +221,75 @@ export const markConversationMessagesSeen = async (
 ): Promise<number> => {
   validateObjectId(conversationId, "Conversation ID");
 
-  const messages = await Message.find({
-    conversationId,
-    sender: { $ne: userId },
-    seenBy: { $ne: userId },
-  });
+  const result = await Message.updateMany(
+    {
+      conversationId,
+      sender: { $ne: userId },
+      seenBy: { $ne: userId },
+    },
+    { $addToSet: { seenBy: userId } }
+  );
 
-  const messageIds = messages.map((msg) => msg._id);
-
-  if (messageIds.length > 0) {
-    await Message.updateMany(
-      { _id: { $in: messageIds } },
-      { $addToSet: { seenBy: userId } }
-    );
-    logger.debug(`${messageIds.length} messages marked as seen in conversation ${conversationId}`);
+  if (result.modifiedCount > 0) {
+    logger.debug(`${result.modifiedCount} messages marked as seen in conversation ${conversationId}`);
   }
 
-  return messageIds.length;
+  return result.modifiedCount;
+};
+
+export const markMessageAsDelivered = async (
+  messageId: string | Types.ObjectId,
+  userId: string | Types.ObjectId
+): Promise<{ conversationId: string; alreadyDelivered: boolean }> => {
+  validateObjectId(messageId, "Message ID");
+
+  const result = await Message.findOneAndUpdate(
+    {
+      _id: messageId,
+      sender: { $ne: userId }, // Can't mark own message as delivered
+      deliveredTo: { $ne: userId },
+    },
+    { $addToSet: { deliveredTo: userId } },
+    { new: false, projection: { conversationId: 1 } }
+  );
+
+  if (!result) {
+    const message = await Message.findById(messageId, { conversationId: 1, sender: 1, deliveredTo: 1 });
+    if (!message) {
+      throwNotFound("Message");
+    }
+    
+    // Check if user is trying to mark their own message
+    if (toString(message.sender) === toString(userId)) {
+      throw new AppError("Cannot mark your own message as delivered", 400);
+    }
+    
+    return { conversationId: message.conversationId.toString(), alreadyDelivered: true };
+  }
+
+  // Validate user belongs to conversation
+  const conversation = await Conversation.findById(result.conversationId, { participants: 1 });
+  if (!conversation) {
+    throw new AppError("Conversation not found", 404);
+  }
+  
+  const isParticipant = conversation.participants.some(
+    (p: any) => toString(p) === toString(userId)
+  );
+  
+  if (!isParticipant) {
+    // Rollback the update
+    await Message.findByIdAndUpdate(messageId, { $pull: { deliveredTo: userId } });
+    throw new AppError("You are not a participant in this conversation", 403);
+  }
+
+  logger.debug(`Message ${messageId} marked as delivered to user ${userId}`);
+  return { conversationId: result.conversationId.toString(), alreadyDelivered: false };
 };
 
 export const markPendingMessagesAsDelivered = async (
   userId: string | Types.ObjectId
-): Promise<{ messageId: string; conversationId: string }[]> => {
+): Promise<Array<{ messageId: string; conversationId: string }>> => {
   validateObjectId(userId, "User ID");
 
   const messages = await Message.find(
@@ -227,15 +300,19 @@ export const markPendingMessagesAsDelivered = async (
     { _id: 1, conversationId: 1 }
   ).lean();
 
-  if (messages.length > 0) {
-    const messageIds = messages.map(m => m._id);
-    await Message.updateMany(
-      { _id: { $in: messageIds } },
-      { $addToSet: { deliveredTo: userId } }
-    );
-    logger.debug(`${messages.length} messages marked as delivered to user ${userId}`);
+  if (messages.length === 0) {
+    return [];
   }
 
+  const messageIds = messages.map(m => m._id);
+  await Message.updateMany(
+    { _id: { $in: messageIds } },
+    { $addToSet: { deliveredTo: userId } }
+  );
+
+  logger.debug(`${messages.length} pending messages marked as delivered to user ${userId}`);
+  
+  // Return both messageIds and conversationIds for notifications
   return messages.map(m => ({
     messageId: (m._id as Types.ObjectId).toString(),
     conversationId: (m.conversationId as Types.ObjectId).toString(),

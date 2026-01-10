@@ -55,18 +55,22 @@ export const refreshToken = catchAsync(
     const { refreshToken } = req.body;
     if (!refreshToken) throw new AppError("No Refresh Token", 401);
 
-    const authenticatedUser = validateRefreshToken(refreshToken) as JwtPayload;
+    try {
+      const authenticatedUser = validateRefreshToken(refreshToken) as JwtPayload;
 
-    const user = {
-      email: authenticatedUser.email,
-      _id: authenticatedUser._id,
-    };
+      const user = {
+        email: authenticatedUser.email,
+        _id: authenticatedUser._id,
+      };
 
-    const accessToken = createAccessToken(user);
+      const accessToken = createAccessToken(user);
 
-    sendSuccessResponse(res, 200, "Token refreshed successfully", {
-      user: authenticatedUser,
-      accessToken,
-    });
+      sendSuccessResponse(res, 200, "Token refreshed successfully", {
+        user: authenticatedUser,
+        accessToken,
+      });
+    } catch (error) {
+      throw new AppError("Invalid or expired refresh token", 401);
+    }
   }
 );

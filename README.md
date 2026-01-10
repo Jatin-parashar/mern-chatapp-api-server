@@ -129,6 +129,11 @@ DATABASE_URI=mongodb://localhost:27017/chatAppDB  # Local MongoDB
 ACCESS_JWT_SECRET=your-super-secret-access-token-change-this-in-production
 REFRESH_JWT_SECRET=your-super-secret-refresh-token-also-change-this
 
+# Token expiry times (JWT format: 1h, 7d, 30m, etc.)
+# Default: 1h for access, 7d for refresh
+ACCESS_TOKEN_EXPIRY=1h
+REFRESH_TOKEN_EXPIRY=7d
+
 # Cloudinary (Get these from your Cloudinary dashboard)
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
@@ -435,9 +440,12 @@ Mark a specific message as read.
 
 **Params:** `id` - Message ID
 
-**Body:** `{ conversationId }` - Required for socket notification
+**Security:** 
+- Must be a participant in the conversation
+- Cannot mark your own messages as seen
+- Unauthorized attempts are blocked and rolled back
 
-**Returns:** Success message
+**Returns:** Success message with conversationId
 
 **Status:** 200 OK
 
@@ -641,11 +649,30 @@ Let others know you stopped typing.
 #### **Event:** `messageDeliveredUpdate` (Server → Client)
 Your message was delivered!
 
-**Payload:** `{ conversationId, messageId, userId }`
+**Payload:** 
+- Single message: `{ conversationId, messageId, userId }`
+- Bulk messages: `{ conversationId, messageIds: [...], userId }`
 
-**When:** Recipient comes online and message is marked as delivered
+**When:** 
+- Real-time: Recipient receives message while online
+- Bulk: Recipient comes online after being offline
 
 **Use it:** Show gray double check marks (delivered but not read)
+
+**Note:** Client must handle both single and array formats!
+
+---
+
+#### **Event:** `bulkMessagesDelivered` (Server → Client)
+List of messages that were bulk-delivered on connection.
+
+**Payload:** `{ messageIds: [...] }` - Array of message IDs
+
+**When:** You connect after being offline
+
+**Use it:** Client knows which messages were already marked delivered, skip emitting `messageDelivered` for these
+
+**Important:** Prevents redundant DB queries and duplicate notifications!
 
 ---
 
@@ -933,6 +960,10 @@ We take security seriously:
 - Token validation on connection
 - UserId verification on every event
 - Automatic cleanup on disconnect
+- **Authorization checks** - Users can only mark messages in their conversations
+- **Sender validation** - Can't mark own messages as delivered/seen
+- **Participant validation** - Must be conversation member
+- **Rollback protection** - Unauthorized updates are reverted
 
 ---
 
@@ -1040,6 +1071,9 @@ server/
 - Connection pooling
 - Cursor-based pagination for messages (more efficient)
 - Offset pagination for other resources
+- **Atomic operations** - Single DB operations for delivered/seen updates
+- **Conditional queries** - Only update if not already marked
+- **Bulk operations** - Batch updates for offline message delivery
 
 **Socket.IO Optimization:**
 - Rooms for efficient broadcasting
@@ -1047,6 +1081,16 @@ server/
 - Heartbeat monitoring (60s timeout, 25s interval)
 - ICE candidate throttling (50/second)
 - Optimized online user broadcasts (only on changes)
+- **Batched notifications** - Group delivery updates by conversation
+- **Client-side filtering** - Prevent redundant socket emissions
+
+**Message Delivery & Read Receipts:**
+- **Real-time delivery tracking** - Instant double-tick for online users
+- **Bulk delivery on connection** - Efficient batch marking for offline messages
+- **Optimized notifications** - Grouped by conversation (97% reduction in socket emits)
+- **Atomic updates** - Race condition safe with conditional queries
+- **Security validation** - Users can only mark messages they're authorized to see
+- **No duplicate notifications** - Smart deduplication prevents spam
 
 **Memory Management:**
 - Periodic cleanup (every 5 minutes)

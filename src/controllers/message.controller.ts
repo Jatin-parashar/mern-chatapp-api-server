@@ -1,5 +1,6 @@
 import { Response } from "express";
 import Message from "../models/message.model.js";
+import Conversation from "../models/conversation.model.js";
 import {
   createMessageInConversation,
   fetchMessagesByConversationId,
@@ -11,8 +12,8 @@ import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import { AuthRequest } from "../types/express.js";
 import { buildPaginatedQuery } from "../utils/queryBuilder.js";
-import { messagePopulateOptions } from "../utils/populateOptions.js";
-import { emitNewMessage, emitMessageSeen, emitConversationMessagesSeen } from "../services/socket.service.js";
+import { messagePopulateOptions, conversationPopulateOptions } from "../utils/populateOptions.js";
+import { emitNewMessage, emitMessageSeen, emitConversationMessagesSeen, notifyNewConversation } from "../services/socket.service.js";
 
 export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) => {
   const { conversationId, content, attachments, messageType, replyTo } = req.body;
@@ -24,6 +25,9 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
     replyTo,
   };
 
+  const conversation = await Conversation.findById(conversationId, { lastMessage: 1 });
+  const isFirstMessage = !conversation?.lastMessage;
+
   const message = await createMessageInConversation(
     req.user!._id,
     conversationId,
@@ -32,7 +36,15 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
 
   emitNewMessage(req.user!._id.toString(), conversationId, message);
 
-  sendSuccessResponse(res, 201, "Message sent successfully", { message });
+  const responseData: any = { message };
+
+  if (isFirstMessage) {
+    const fullConversation = await Conversation.findById(conversationId).populate(conversationPopulateOptions).lean();
+    notifyNewConversation(fullConversation!, req.user!._id.toString());
+    responseData.conversation = fullConversation;
+  }
+
+  sendSuccessResponse(res, 201, "Message sent successfully", responseData);
 });
 
 export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -59,16 +71,15 @@ export const markConversationMessagesSeen = catchAsync(async (req: AuthRequest, 
     emitConversationMessagesSeen(id, req.user!._id.toString());
   }
 
-  sendSuccessResponse(res, 200, `${count} messages marked as seen.`, { count });
+  sendSuccessResponse(res, 200, `${count} message${count !== 1 ? 's' : ''} marked as seen`, { count });
 });
 
 export const markMessageSeen = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { conversationId } = req.body;
 
-  const alreadySeen = await markMessageAsSeen(id, req.user!._id);
+  const { conversationId, alreadySeen } = await markMessageAsSeen(id, req.user!._id);
 
-  if (!alreadySeen && conversationId) {
+  if (!alreadySeen) {
     emitMessageSeen(conversationId, id, req.user!._id.toString());
   }
 
