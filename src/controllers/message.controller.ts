@@ -34,7 +34,7 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
     messageData
   );
 
-  emitNewMessage(req.user!._id.toString(), conversationId, message);
+  await emitNewMessage(req.user!._id.toString(), conversationId, message);
 
   const responseData: any = { message };
 

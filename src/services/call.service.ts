@@ -53,9 +53,18 @@ export const updateCallStatus = async (
       update.startedAt = new Date();
     }
 
-    // If call is ending, set endedAt
+    // If call is ending, set endedAt and calculate duration
     if (status === "ended" || status === "declined" || status === "missed") {
       update.endedAt = new Date();
+      
+      // Calculate duration only for ended calls (not declined/missed)
+      if (status === "ended") {
+        const call = await Call.findOne({ callId });
+        if (call && call.startedAt) {
+          const duration = Math.floor((update.endedAt.getTime() - call.startedAt.getTime()) / 1000);
+          update.duration = duration;
+        }
+      }
     }
 
     const call = await Call.findOneAndUpdate({ callId }, update, { new: true });

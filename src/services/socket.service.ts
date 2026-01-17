@@ -8,12 +8,52 @@ import {
   SOCKET_NEW_CONVERSATION_RECEIVED 
 } from "../socket/utils/socketConstants.js";
 import { Types } from "mongoose";
+import Message from "../models/message.model.js";
+import Conversation from "../models/conversation.model.js";
+import logger from "../utils/logger.js";
 
-export const emitNewMessage = (userId: string, conversationId: string, message: any): void => {
+export const emitNewMessage = async (userId: string, conversationId: string, message: any): Promise<void> => {
   const io = getIO();
-  if (io) {
-    io.to(userId).emit(SOCKET_MESSAGE_RECEIVED, message);
-    io.to(conversationId).emit(SOCKET_MESSAGE_RECEIVED, message);
+  if (!io) return;
+
+  // Emit message to recipients
+  io.to(userId).emit(SOCKET_MESSAGE_RECEIVED, message);
+  io.to(conversationId).emit(SOCKET_MESSAGE_RECEIVED, message);
+
+  // Auto-mark as delivered for online recipients
+  try {
+    const conversation = await Conversation.findById(conversationId, { participants: 1 }).lean<{ _id: Types.ObjectId; participants: Types.ObjectId[] }>();
+    if (!conversation) return;
+
+    const onlineRecipients: string[] = [];
+    
+    conversation.participants.forEach((participantId) => {
+      const pId = participantId.toString();
+      // Skip sender, only mark for online recipients
+      if (pId !== userId && onlineUsers.has(pId)) {
+        onlineRecipients.push(pId);
+      }
+    });
+
+    if (onlineRecipients.length > 0) {
+      // Update DB: Mark as delivered for all online recipients
+      await Message.findByIdAndUpdate(message._id, {
+        $addToSet: { deliveredTo: { $each: onlineRecipients } }
+      });
+
+      // Emit delivery updates
+      onlineRecipients.forEach(recipientId => {
+        io.to(conversationId).emit(SOCKET_MESSAGE_DELIVERED_UPDATE, {
+          conversationId,
+          messageId: message._id,
+          userId: recipientId,
+        });
+      });
+
+      logger.debug({ messageId: message._id, recipients: onlineRecipients.length }, "Message auto-delivered to online users");
+    }
+  } catch (error) {
+    logger.error({ err: error, messageId: message._id }, "Failed to auto-mark message as delivered");
   }
 };
 
@@ -46,15 +86,6 @@ export const emitConversationMessagesSeen = (conversationId: string, userId: str
   const io = getIO();
   io?.to(conversationId).emit(SOCKET_CONVERSATION_MESSAGES_SEEN_UPDATE, {
     conversationId,
-    userId,
-  });
-};
-
-export const emitMessageDelivered = (conversationId: string, messageId: string, userId: string): void => {
-  const io = getIO();
-  io?.to(conversationId).emit(SOCKET_MESSAGE_DELIVERED_UPDATE, {
-    conversationId,
-    messageId,
     userId,
   });
 };

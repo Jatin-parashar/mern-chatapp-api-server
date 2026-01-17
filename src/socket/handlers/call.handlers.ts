@@ -127,25 +127,29 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
 
         if (emitted) {
           logger.debug(`Call signal sent to receiver: ${receiverId}`);
-        } else {
-          logger.warn(
-            `Receiver ${receiverId} is offline, marking call as missed`
-          );
-          // Ring timeout
+          // Set ring timeout for no answer
           const ringTimeout = setTimeout(async () => {
             const call = getActiveCall(callId);
             if (call && call.status === "calling") {
               await markCallAsMissed(callId);
               removeActiveCall(callId);
-              emitToUser(io, callerId, SOCKET_CALL_DECLINED, {
+              socket.emit(SOCKET_CALL_DECLINED, {
                 callId,
-                reason: "timeout",
+                reason: "No answer",
               });
             }
           }, CALL_RING_TIMEOUT);
           
-          // Store timeout for cleanup
           updateActiveCall(callId, { ringTimeout } as any);
+        } else {
+          logger.warn(`Receiver ${receiverId} is offline`);
+          // Immediately notify caller that receiver is offline
+          await markCallAsMissed(callId);
+          removeActiveCall(callId);
+          socket.emit(SOCKET_CALL_DECLINED, {
+            callId,
+            reason: "User is offline",
+          });
         }
       } catch (error) {
         logger.error(

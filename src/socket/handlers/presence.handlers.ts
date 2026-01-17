@@ -3,7 +3,6 @@ import { Types } from "mongoose";
 import {
   SOCKET_SETUP,
   SOCKET_ONLINE_USERS,
-  SOCKET_BULK_MESSAGES_DELIVERED,
 } from "../utils/socketConstants.js";
 import logger from "../../utils/logger.js";
 import {
@@ -40,11 +39,6 @@ export const registerPresenceHandlers = (io: Server, socket: CustomSocket): void
       markPendingMessagesAsDelivered(userId)
         .then((deliveredMessages: Array<{ messageId: string; conversationId: string }>) => {
           if (deliveredMessages.length > 0) {
-            // Send list to client so it knows which messages were bulk-delivered
-            socket.emit(SOCKET_BULK_MESSAGES_DELIVERED, { 
-              messageIds: deliveredMessages.map(m => m.messageId) 
-            });
-            
             // Group by conversation for efficient notification
             const grouped = new Map<string, string[]>();
             deliveredMessages.forEach(({ messageId, conversationId }) => {

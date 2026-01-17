@@ -237,56 +237,6 @@ export const markConversationMessagesSeen = async (
   return result.modifiedCount;
 };
 
-export const markMessageAsDelivered = async (
-  messageId: string | Types.ObjectId,
-  userId: string | Types.ObjectId
-): Promise<{ conversationId: string; alreadyDelivered: boolean }> => {
-  validateObjectId(messageId, "Message ID");
-
-  const result = await Message.findOneAndUpdate(
-    {
-      _id: messageId,
-      sender: { $ne: userId }, // Can't mark own message as delivered
-      deliveredTo: { $ne: userId },
-    },
-    { $addToSet: { deliveredTo: userId } },
-    { new: false, projection: { conversationId: 1 } }
-  );
-
-  if (!result) {
-    const message = await Message.findById(messageId, { conversationId: 1, sender: 1, deliveredTo: 1 });
-    if (!message) {
-      throwNotFound("Message");
-    }
-    
-    // Check if user is trying to mark their own message
-    if (toString(message.sender) === toString(userId)) {
-      throw new AppError("Cannot mark your own message as delivered", 400);
-    }
-    
-    return { conversationId: message.conversationId.toString(), alreadyDelivered: true };
-  }
-
-  // Validate user belongs to conversation
-  const conversation = await Conversation.findById(result.conversationId, { participants: 1 });
-  if (!conversation) {
-    throw new AppError("Conversation not found", 404);
-  }
-  
-  const isParticipant = conversation.participants.some(
-    (p: any) => toString(p) === toString(userId)
-  );
-  
-  if (!isParticipant) {
-    // Rollback the update
-    await Message.findByIdAndUpdate(messageId, { $pull: { deliveredTo: userId } });
-    throw new AppError("You are not a participant in this conversation", 403);
-  }
-
-  logger.debug(`Message ${messageId} marked as delivered to user ${userId}`);
-  return { conversationId: result.conversationId.toString(), alreadyDelivered: false };
-};
-
 export const markPendingMessagesAsDelivered = async (
   userId: string | Types.ObjectId
 ): Promise<Array<{ messageId: string; conversationId: string }>> => {
