@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import {
   SOCKET_SETUP,
   SOCKET_ONLINE_USERS,
+  SOCKET_ERROR,
 } from "../utils/socketConstants.js";
 import logger from "../../utils/logger.js";
 import {
@@ -14,7 +15,7 @@ import { markPendingMessagesAsDelivered } from "../../services/message.service.j
 import { emitBulkMessagesDelivered } from "../../services/socket.service.js";
 import Conversation from "../../models/conversation.model.js";
 
-export const registerPresenceHandlers = (io: Server, socket: CustomSocket): void => {
+export const registerPresenceHandlers = (_io: Server, socket: CustomSocket): void => {
   
   // Handle user setup - when user connects and identifies themselves
   socket.on(SOCKET_SETUP, async (): Promise<void> => {
@@ -23,6 +24,7 @@ export const registerPresenceHandlers = (io: Server, socket: CustomSocket): void
 
       if (!userId) {
         logger.warn({ socketId: socket.id }, "Setup attempted without userId");
+        socket.emit(SOCKET_ERROR, { message: "User ID not found" });
         return;
       }
 
@@ -66,6 +68,7 @@ export const registerPresenceHandlers = (io: Server, socket: CustomSocket): void
       socket.emit(SOCKET_ONLINE_USERS, onlineUserIds);
     } catch (error) {
       logger.error({ err: error, socketId: socket.id, userId: socket.userId }, "Error in user setup");
+      socket.emit(SOCKET_ERROR, { message: "Failed to setup user connection" });
     }
   });
 };

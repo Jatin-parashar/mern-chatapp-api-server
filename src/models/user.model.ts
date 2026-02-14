@@ -1,17 +1,18 @@
 import mongoose, { model, Schema } from "mongoose";
 import { IUser } from "../types/models.js";
+import { MODEL_NAMES, USER_DEFAULTS } from "../config/constants.js";
 
 const userSchema = new Schema<IUser>(
   {
     _id: {
       type: Schema.Types.ObjectId,
-      ref: "Auth",
+      ref: MODEL_NAMES.AUTH,
       required: true,
     },
     name: { type: String, required: true },
     username: { type: String, required: true, unique: true },
-    profilePic: { type: String, default: "" },
-    status: { type: String, default: "Hey there! I am using ChatApp" },
+    profilePic: { type: String, default: USER_DEFAULTS.PROFILE_PIC },
+    status: { type: String, default: USER_DEFAULTS.STATUS },
   },
   {
     timestamps: true,
@@ -20,5 +21,5 @@ const userSchema = new Schema<IUser>(
 
 userSchema.index({ name: 1 });
 
-const User = mongoose.models.User || model("User", userSchema);
+const User = mongoose.models.User || model(MODEL_NAMES.USER, userSchema);
 export default User;

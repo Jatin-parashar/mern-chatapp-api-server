@@ -1,5 +1,6 @@
 import mongoose, { model, Schema } from "mongoose";
 import { IAuthCredential } from "../types/models.js";
+import { MODEL_NAMES } from "../config/constants.js";
 
 const authCredentialSchema = new Schema<IAuthCredential>(
   {
@@ -19,5 +20,5 @@ const authCredentialSchema = new Schema<IAuthCredential>(
 
 const AuthCredential =
   mongoose.models.AuthCredential ||
-  model("AuthCredential", authCredentialSchema);
+  model(MODEL_NAMES.AUTH_CREDENTIAL, authCredentialSchema);
 export default AuthCredential;

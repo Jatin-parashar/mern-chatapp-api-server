@@ -7,20 +7,21 @@ import { toString } from "../utils/common.js";
 import logger from "../utils/logger.js";
 import { IConversation } from "../types/models.js";
 import { ConversationWithPopulatedFields } from "../types/service.js";
+import { HTTP_MESSAGES, CONVERSATION_ERRORS, ENTITY_NAMES, VALIDATION_CONSTANTS } from "../config/constants.js";
 
 const validateParticipants = (
   participants: Array<string | Types.ObjectId>,
   userId: string | Types.ObjectId
 ): void => {
   if (!participants || participants.length < 1) {
-    throw new AppError("At least one participant is required", 400);
+    throw new AppError(HTTP_MESSAGES.VALIDATION.PARTICIPANT_REQUIRED, 400);
   }
   
   const userIdStr = toString(userId);
   const participantsStr = participants.map(p => toString(p));
   
   if (!participantsStr.includes(userIdStr)) {
-    throw new AppError("You must be part of the conversation participants", 400);
+    throw new AppError(CONVERSATION_ERRORS.MUST_BE_PARTICIPANT, 400);
   }
 };
 
@@ -28,29 +29,18 @@ const validateGroup = (
   participants: Array<string | Types.ObjectId>,
   name: string
 ): void => {
-  if (!name || name.trim() === "") {
-    throw new AppError("Group chats need a name", 400);
+  if (!name || name.trim() === VALIDATION_CONSTANTS.EMPTY_STRING) {
+    throw new AppError(HTTP_MESSAGES.VALIDATION.GROUP_NAME_REQUIRED, 400);
   }
   if (participants.length < 3) {
-    throw new AppError("At least 3 participants are required for group chats (including you)", 400);
+    throw new AppError(HTTP_MESSAGES.VALIDATION.MIN_PARTICIPANTS_GROUP, 400);
   }
 };
 
 const validateDirect = (participants: Array<string | Types.ObjectId>): void => {
   if (participants.length !== 2) {
-    throw new AppError("One-on-one chat must have exactly 2 participants", 400);
+    throw new AppError(HTTP_MESSAGES.VALIDATION.EXACT_TWO_PARTICIPANTS, 400);
   }
-};
-
-const findExistingDirectChat = async (
-  participants: Array<string | Types.ObjectId>
-): Promise<ConversationWithPopulatedFields | null> => {
-  return await Conversation.findOne({
-    isGroup: false,
-    participants: { $all: participants, $size: 2 },
-  })
-    .populate(conversationPopulateOptions)
-    .lean<ConversationWithPopulatedFields>();
 };
 
 const findOrCreateDirectChat = async (
@@ -96,7 +86,7 @@ export const validateUserBelongsToConversation = (
   );
   
   if (!isParticipant) {
-    throw new AppError("Unauthorized access to this conversation", 403);
+    throw new AppError(CONVERSATION_ERRORS.UNAUTHORIZED_ACCESS, 403);
   }
 };
 
@@ -147,7 +137,7 @@ export const fetchUserConversationsById = async (
     .populate(conversationPopulateOptions)
     .lean<ConversationWithPopulatedFields>();
 
-  if (!conversation) throwNotFound("Conversation");
+  if (!conversation) throwNotFound(ENTITY_NAMES.CONVERSATION);
   
   validateUserBelongsToConversation(conversation!, userId);
 

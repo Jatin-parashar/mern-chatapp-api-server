@@ -11,8 +11,9 @@ import {
 import { updateCallStatus } from "../../services/call.service.js";
 import { SOCKET_CALL_PEER_DISCONNECTED, SOCKET_CALL_ENDED, SOCKET_ONLINE_USERS } from "../utils/socketConstants.js";
 import logger from "../../utils/logger.js";
+import { CALL_STATUS } from "../../config/constants.js";
 
-const cleanupCall = async (io: Server, socket: CustomSocket, callId: string, call: any, otherUserId: string): Promise<void> => {
+const cleanupCall = async (io: Server, _socket: CustomSocket, callId: string, call: any, otherUserId: string): Promise<void> => {
   try {
     // Clear timeouts
     if (call.ringTimeout) clearTimeout(call.ringTimeout);
@@ -22,7 +23,7 @@ const cleanupCall = async (io: Server, socket: CustomSocket, callId: string, cal
     emitToUser(io, otherUserId, SOCKET_CALL_PEER_DISCONNECTED, { callId });
     emitToUser(io, otherUserId, SOCKET_CALL_ENDED, { callId });
     
-    await updateCallStatus(callId, "ended");
+    await updateCallStatus(callId, CALL_STATUS.ENDED);
     removeActiveCall(callId);
   } catch (error) {
     logger.error({ err: error, callId }, "Error cleaning up call");

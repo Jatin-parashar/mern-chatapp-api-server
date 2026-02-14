@@ -1,7 +1,7 @@
 import { ExtendedError, Socket } from "socket.io";
 import { validateAccessToken } from "../../utils/auth.js";
 import logger from "../../utils/logger.js";
-import { JwtPayload } from "jsonwebtoken";
+import { HTTP_MESSAGES } from "../../config/constants.js";
 
 // Define custom socket data interface
 export interface CustomSocket extends Socket {
@@ -18,28 +18,33 @@ export const authenticateSocket = (
 
     if (!token || typeof token !== 'string') {
       logger.warn({ socketId: socket.id }, "Socket connection attempt without valid token");
-      socket.disconnect(true);
-      return next(new Error("Authentication error: No token provided"));
+      return next(new Error(`Authentication error: ${HTTP_MESSAGES.AUTH.TOKEN_NOT_PROVIDED}`));
     }
 
-    const user = validateAccessToken(token) as JwtPayload;
+    const decoded = validateAccessToken(token);
     
-    if (!user || typeof user !== 'object' || !user._id || !user.email) {
+    if (typeof decoded === 'string' || !decoded._id || !decoded.email) {
       logger.warn({ socketId: socket.id }, "Invalid token payload");
-      socket.disconnect(true);
-      return next(new Error("Authentication error: Invalid token"));
+      return next(new Error(`Authentication error: ${HTTP_MESSAGES.AUTH.INVALID_PAYLOAD}`));
     }
     
     // Cast to CustomSocket and add user data
     const customSocket = socket as CustomSocket;
-    customSocket.userId = user._id;
-    customSocket.userEmail = user.email;
+    customSocket.userId = decoded._id;
+    customSocket.userEmail = decoded.email;
 
-    logger.debug(`Socket authenticated for user: ${user._id}`);
+    logger.debug(`Socket authenticated for user: ${decoded._id}`);
     next();
-  } catch (error) {
+  } catch (error: any) {
     logger.error({ err: error, socketId: socket.id }, "Socket authentication failed");
-    socket.disconnect(true);
-    return next(new Error("Authentication error: Token validation failed"));
+    
+    if (error.name === 'TokenExpiredError') {
+      return next(new Error(`Authentication error: ${HTTP_MESSAGES.AUTH.TOKEN_EXPIRED}`));
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return next(new Error(`Authentication error: ${HTTP_MESSAGES.AUTH.INVALID_TOKEN}`));
+    }
+    
+    return next(new Error(`Authentication error: ${HTTP_MESSAGES.AUTH.AUTH_FAILED}`));
   }
 };

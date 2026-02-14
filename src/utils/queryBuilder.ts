@@ -1,12 +1,4 @@
-import { Model, FilterQuery } from "mongoose";
 import { parsePaginationParams, createPaginationResult } from "./pagination.js";
-
-interface QueryOptions<T> {
-  filter?: FilterQuery<T>;
-  populate?: any;
-  sort?: any;
-  lean?: boolean;
-}
 
 export const buildPaginatedQuery = async (
   model: any,

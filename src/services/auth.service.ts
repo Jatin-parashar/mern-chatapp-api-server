@@ -3,14 +3,8 @@ import AuthCredential from "../models/auth.model.js";
 import { throwRequired } from "../utils/errorHelpers.js";
 import AppError from "../utils/appError.js";
 import { hashPassword, verifyPassword } from "../utils/auth.js";
-import {
-  validateEmail,
-  validateField,
-  validateName,
-  validatePassword,
-  validateUsername,
-} from "../utils/validation.js";
 import { UserPayload } from "../types/user.js";
+import { HTTP_MESSAGES, FAKE_HASH } from "../config/constants.js";
 
 export const createUser = async (
   name: string,
@@ -20,23 +14,14 @@ export const createUser = async (
   status?: string,
   profilePic?: string
 ): Promise<UserPayload> => {
-  if (!name || !email || !username || !password) {
-    throwRequired("All required fields");
-  }
-
-  validateField(name, validateName);
-  validateField(email, validateEmail);
-  validateField(username, validateUsername);
-  validateField(password, validatePassword);
-
   const existingUser = await AuthCredential.findOne({ email });
   if (existingUser) {
-    throw new AppError("Email already in use", 400);
+    throw new AppError(HTTP_MESSAGES.AUTH.EMAIL_IN_USE, 400);
   }
 
   const existingUsername = await User.findOne({ username});
   if (existingUsername) {
-    throw new AppError("Username already taken", 400);
+    throw new AppError(HTTP_MESSAGES.AUTH.USERNAME_TAKEN, 400);
   }
 
   const hashedPassword = await hashPassword(password);
@@ -67,23 +52,19 @@ export const loginUser = async (
   password: string
 ): Promise<UserPayload> => {
   if (!email || !password) {
-    throwRequired("All fields");
+    throwRequired(HTTP_MESSAGES.AUTH.ALL_FIELDS_REQUIRED);
   }
-
-  validateField(email, validateEmail);
 
   const existingUser = await AuthCredential.findOne({ email });
-  if (!existingUser) {
-    throw new AppError("User does not exist", 400);
+  
+  // Always verify password even if user doesn't exist (timing attack prevention)
+  const isPasswordCorrect = existingUser 
+    ? await verifyPassword(password, existingUser.password)
+    : await verifyPassword(password, FAKE_HASH);
+
+  if (!existingUser || !isPasswordCorrect) {
+    throw new AppError(HTTP_MESSAGES.AUTH.INVALID_CREDENTIALS, 401);
   }
-
-  const IsEnteredPasswordCorrect = await verifyPassword(
-    password,
-    existingUser.password
-  );
-
-  if (!IsEnteredPasswordCorrect)
-    throw new AppError("Entered Password is incorrect", 400);
 
   const authenticatedUser: UserPayload = {
     email: existingUser.email,

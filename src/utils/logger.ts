@@ -1,6 +1,7 @@
 import pino from "pino";
-import { NODE_ENV } from "../config/envConfig.js";
 
+// Use process.env directly to avoid circular dependency with envConfig
+const NODE_ENV = process.env.NODE_ENV || "development";
 const isDevelopment = NODE_ENV === "development";
 
 const productionLogger = pino({

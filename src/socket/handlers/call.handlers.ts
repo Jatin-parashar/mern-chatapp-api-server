@@ -24,6 +24,7 @@ import {
 } from "../../services/call.service.js";
 import { CustomSocket } from "../utils/socketAuth.js";
 import { CALL_RING_TIMEOUT, CALL_MAX_DURATION } from "../../config/envConfig.js";
+import { CALL_STATUS, WEBRTC_SIGNAL_TYPES, CALL_DECLINE_REASONS } from "../../config/constants.js";
 
 interface CallerInfo {
   _id: string;
@@ -84,7 +85,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           logger.warn(`Caller info mismatch: ${callerInfo._id} vs ${callerId}`);
           socket.emit(SOCKET_CALL_DECLINED, {
             callId,
-            reason: "Authentication error",
+            reason: CALL_DECLINE_REASONS.AUTH_ERROR,
           });
           return;
         }
@@ -94,7 +95,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           logger.warn(`User ${callerId} attempted to call themselves`);
           socket.emit(SOCKET_CALL_DECLINED, {
             callId,
-            reason: "Cannot call yourself",
+            reason: CALL_DECLINE_REASONS.CANNOT_CALL_SELF,
           });
           return;
         }
@@ -113,7 +114,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           isVideoCall,
           callerSocketId: socket.id,
           receiverSocketId: null,
-          status: "calling",
+          status: CALL_STATUS.CALLING,
           createdAt: Date.now(),
         });
 
@@ -130,12 +131,12 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           // Set ring timeout for no answer
           const ringTimeout = setTimeout(async () => {
             const call = getActiveCall(callId);
-            if (call && call.status === "calling") {
+            if (call && call.status === CALL_STATUS.CALLING) {
               await markCallAsMissed(callId);
               removeActiveCall(callId);
               socket.emit(SOCKET_CALL_DECLINED, {
                 callId,
-                reason: "No answer",
+                reason: CALL_DECLINE_REASONS.NO_ANSWER,
               });
             }
           }, CALL_RING_TIMEOUT);
@@ -148,7 +149,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           removeActiveCall(callId);
           socket.emit(SOCKET_CALL_DECLINED, {
             callId,
-            reason: "User is offline",
+            reason: CALL_DECLINE_REASONS.USER_OFFLINE,
           });
         }
       } catch (error) {
@@ -156,7 +157,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           { err: error, callId },
           `Failed to initiate call`
         );
-        socket.emit(SOCKET_CALL_DECLINED, { callId, reason: "error" });
+        socket.emit(SOCKET_CALL_DECLINED, { callId, reason: CALL_DECLINE_REASONS.ERROR });
       }
     }
   );
@@ -187,7 +188,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         logger.debug(`Call accepted: ${callId}`);
 
         // Update call status in database
-        await updateCallStatus(callId, "accepted");
+        await updateCallStatus(callId, CALL_STATUS.ACCEPTED);
 
         // Clear ring timeout if exists
         const existingCall = getActiveCall(callId);
@@ -197,7 +198,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
 
         // Update active call data
         updateActiveCall(callId, {
-          status: "accepted",
+          status: CALL_STATUS.ACCEPTED,
           receiverSocketId: socket.id,
         });
 
@@ -206,7 +207,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           const activeCall = getActiveCall(callId);
           if (activeCall) {
             logger.info(`Auto-ending call ${callId} after max duration`);
-            await updateCallStatus(callId, "ended");
+            await updateCallStatus(callId, CALL_STATUS.ENDED);
             emitToUser(io, call.caller, SOCKET_CALL_ENDED, { callId });
             emitToUser(io, call.receiver, SOCKET_CALL_ENDED, { callId });
             removeActiveCall(callId);
@@ -246,14 +247,14 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         }
 
         logger.debug(
-          `Call declined: ${callId}, reason: ${reason || "user declined"}`
+          `Call declined: ${callId}, reason: ${reason || CALL_DECLINE_REASONS.USER_DECLINED}`
         );
 
         // Clear timeouts
         clearCallTimeouts(call);
 
         // Update call status in database
-        await updateCallStatus(callId, "declined");
+        await updateCallStatus(callId, CALL_STATUS.DECLINED);
 
         // Emit to caller
         emitToUser(io, call.caller, SOCKET_CALL_DECLINED, { callId, reason });
@@ -292,7 +293,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         clearCallTimeouts(call);
 
         // Update call status in database (will calculate duration)
-        await updateCallStatus(callId, "ended");
+        await updateCallStatus(callId, CALL_STATUS.ENDED);
 
         // Emit to both participants
         emitToUser(io, call.caller, SOCKET_CALL_ENDED, { callId });
@@ -318,7 +319,7 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
         }
 
         // Validate WebRTC signal structure
-        if (signal.type && !['offer', 'answer'].includes(signal.type)) {
+        if (signal.type && ![WEBRTC_SIGNAL_TYPES.OFFER, WEBRTC_SIGNAL_TYPES.ANSWER].includes(signal.type)) {
           if (!signal.candidate) {
             logger.warn("Invalid WebRTC signal structure");
             return;

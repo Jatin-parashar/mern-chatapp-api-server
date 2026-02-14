@@ -2,9 +2,9 @@ import { compare, hash } from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { UserPayload } from "../types/user.js";
 import { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET, ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY } from "../config/envConfig.js";
+import { BCRYPT_SALT_ROUNDS } from "../config/constants.js";
 
 const { sign, verify } = jwt;
-const saltRounds = 10;
 
 export const createAccessToken = (user: UserPayload): string =>
   sign(user, ACCESS_JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY } as SignOptions);
@@ -23,7 +23,7 @@ export const validateRefreshToken = (
 };
 
 export const hashPassword = async (password: string): Promise<string> => {
-  return await hash(password, saltRounds);
+  return await hash(password, BCRYPT_SALT_ROUNDS);
 };
 
 export const verifyPassword = async (

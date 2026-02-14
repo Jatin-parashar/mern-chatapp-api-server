@@ -10,11 +10,12 @@ import Conversation from "../models/conversation.model.js";
 import { buildPaginatedQuery } from "../utils/queryBuilder.js";
 import { conversationPopulateOptions } from "../utils/populateOptions.js";
 import { setupConversationRooms } from "../services/socket.service.js";
+import { BOOLEAN_STRINGS, MESSAGE_PREFIXES, SUCCESS_MESSAGES } from "../config/constants.js";
 
 export const createConversation = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { participants, name } = req.body;
-    const isGroup = req.query.isGroup === "true";
+    const isGroup = req.query.isGroup === BOOLEAN_STRINGS.TRUE;
 
     const { conversation, created } = await handleConversationCreation({
       userId: req.user!._id,
@@ -31,8 +32,8 @@ export const createConversation = catchAsync(
       res,
       created ? 201 : 200,
       created
-        ? `A new ${isGroup ? "group " : ""}chat is successfully created`
-        : "Conversation already exists",
+        ? `A new ${isGroup ? MESSAGE_PREFIXES.GROUP_CHAT : MESSAGE_PREFIXES.EMPTY}chat is successfully created`
+        : SUCCESS_MESSAGES.CONVERSATION_EXISTS,
       { conversation }
     );
   }
@@ -53,7 +54,7 @@ export const getUserConversations = catchAsync(
         lean: true
       }
     );
-    sendSuccessResponse(res, 200, "User conversations fetched successfully", result);
+    sendSuccessResponse(res, 200, SUCCESS_MESSAGES.CONVERSATIONS_FETCHED, result);
   }
 );
 
@@ -64,7 +65,7 @@ export const getConversationById = catchAsync(
       req.user!._id
     );
 
-    sendSuccessResponse(res, 200, "Conversation fetched successfully", {
+    sendSuccessResponse(res, 200, SUCCESS_MESSAGES.CONVERSATION_FETCHED, {
       conversation,
     });
   }

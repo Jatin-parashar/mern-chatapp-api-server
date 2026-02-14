@@ -20,3 +20,4 @@ export const SOCKET_CALL_DECLINED = "callDeclined";
 export const SOCKET_CALL_ENDED = "callEnded";
 export const SOCKET_CALL_SIGNAL = "callSignal";
 export const SOCKET_CALL_PEER_DISCONNECTED = "callPeerDisconnected";
+export const SOCKET_ERROR = "socketError";

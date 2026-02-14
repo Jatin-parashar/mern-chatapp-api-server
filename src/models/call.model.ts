@@ -1,5 +1,6 @@
 import mongoose, { model, Schema, UpdateQuery } from "mongoose";
 import { ICall } from "../types/models.js";
+import { CALL_STATUS, MODEL_NAMES } from "../config/constants.js";
 
 const callSchema = new Schema<ICall>({
   callId: { 
@@ -10,13 +11,13 @@ const callSchema = new Schema<ICall>({
   },
   caller: { 
     type: Schema.Types.ObjectId, 
-    ref: "User", 
+    ref: MODEL_NAMES.USER, 
     required: true,
     index: true,
   },
   receiver: { 
     type: Schema.Types.ObjectId, 
-    ref: "User", 
+    ref: MODEL_NAMES.USER, 
     required: true,
     index: true,
   },
@@ -26,8 +27,8 @@ const callSchema = new Schema<ICall>({
   },
   status: {
     type: String,
-    enum: ['calling', 'accepted', 'declined', 'ended', 'missed'],
-    default: 'calling',
+    enum: Object.values(CALL_STATUS),
+    default: CALL_STATUS.CALLING,
     index: true,
   },
   duration: { 
@@ -83,5 +84,5 @@ callSchema.pre('findOneAndUpdate', async function (next) {
   next();
 });
 
-const Call = mongoose.models.Call || model<ICall>("Call", callSchema);
+const Call = mongoose.models.Call || model<ICall>(MODEL_NAMES.CALL, callSchema);
 export default Call;

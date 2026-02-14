@@ -103,7 +103,7 @@ export const emitBulkMessagesDelivered = (deliveries: Map<string, string[]>, use
   });
 };
 
-export const setupConversationRooms = (conversation: any, creatorId: string): void => {
+export const setupConversationRooms = (conversation: any, _creatorId: string): void => {
   const io = getIO();
   if (!io) return;
 

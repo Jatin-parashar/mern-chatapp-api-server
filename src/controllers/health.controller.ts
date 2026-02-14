@@ -3,8 +3,9 @@ import { NODE_ENV } from "../config/envConfig.js";
 import catchAsync from "../utils/catchAsync.js";
 import { sendSuccessResponse } from "../utils/response.js";
 import mongoose from "mongoose";
+import { SUCCESS_MESSAGES } from "../config/constants.js";
 
-export const healthCheck = catchAsync(async (req: Request, res: Response) => {
+export const healthCheck = catchAsync(async (_req: Request, res: Response) => {
   const healthData = {
     uptime: process.uptime(),
     timestamp: Date.now(),
@@ -13,5 +14,5 @@ export const healthCheck = catchAsync(async (req: Request, res: Response) => {
     environment: NODE_ENV
   };
 
-  sendSuccessResponse(res, 200, "Health check successful", healthData);
+  sendSuccessResponse(res, 200, SUCCESS_MESSAGES.HEALTH_CHECK, healthData);
 });

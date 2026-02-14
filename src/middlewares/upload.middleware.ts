@@ -63,7 +63,7 @@ const validateFile = (file: CloudinaryFile): void => {
 
 export const processUploadedFiles = (
   req: FileRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   try {

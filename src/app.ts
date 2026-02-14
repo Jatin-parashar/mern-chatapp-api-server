@@ -14,6 +14,7 @@ import globalErrorHandler from "./middlewares/error.middleware.js";
 import AppError from "./utils/appError.js";
 import { PORT } from "./config/envConfig.js";
 import { requestLogger } from "./middlewares/requestLogger.middleware.js";
+import { EXPRESS_SETTINGS, HEALTH_STATUS } from "./config/constants.js";
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (err) => {
@@ -24,7 +25,7 @@ process.on("uncaughtException", (err) => {
 // Initialize Express app
 const app = express();
 
-app.set("trust proxy", 1);
+app.set(EXPRESS_SETTINGS.TRUST_PROXY, 1);
 
 // Security & Middleware
 app.use(helmet({
@@ -62,7 +63,7 @@ app.use(
   })
 );
 app.use(express.json({ limit: "10mb" }));
-app.use((req, res, next) => {
+app.use((_req, res, next) => {
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
   next();
 });
@@ -76,10 +77,10 @@ cloudinaryConfig();
 connectDB();
 
 // Root route
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.json({
     message: "ChatApp API - Real-time messaging and video calling service",
-    status: "active",
+    status: HEALTH_STATUS.ACTIVE,
     features: [
       "User authentication & registration",
       "Real-time messaging with Socket.IO",
@@ -103,7 +104,7 @@ app.get("/", (req, res) => {
 app.use("/api/v1", routes);
 
 // Handle undefined routes
-app.all("/{*any}", (req, res, next) => {
+app.all("/{*any}", (req, _res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 

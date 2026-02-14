@@ -2,6 +2,7 @@ import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import logger from "../utils/logger.js";
+import AppError from "../utils/appError.js";
 
 export function cloudinaryConfig() {
   // Configure using individual credentials
@@ -15,6 +16,50 @@ export function cloudinaryConfig() {
 
 // Allowed resource types for Cloudinary
 type CloudinaryResourceType = "image" | "video" | "raw" | "auto";
+
+// File type validation
+const ALLOWED_MIME_TYPES = {
+  image: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+  video: ["video/mp4", "video/webm", "video/quicktime"],
+  audio: ["audio/mpeg", "audio/wav", "audio/ogg"],
+  document: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+  ],
+};
+
+const DANGEROUS_EXTENSIONS = [
+  ".exe", ".bat", ".cmd", ".sh", ".ps1", ".msi", ".app", ".deb", ".rpm",
+  ".dmg", ".pkg", ".run", ".bin", ".com", ".scr", ".vbs", ".js", ".jar"
+];
+
+// File filter for multer
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Check for dangerous extensions
+  const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] || "";
+  if (DANGEROUS_EXTENSIONS.includes(ext)) {
+    return cb(new AppError(`File type ${ext} is not allowed for security reasons`, 400));
+  }
+
+  // Check MIME type
+  const allAllowedTypes = Object.values(ALLOWED_MIME_TYPES).flat();
+  if (!allAllowedTypes.includes(file.mimetype)) {
+    return cb(new AppError(`File type ${file.mimetype} is not supported`, 400));
+  }
+
+  cb(null, true);
+};
+
+const profileFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (!ALLOWED_MIME_TYPES.image.includes(file.mimetype)) {
+    return cb(new AppError("Only image files are allowed for profile pictures", 400));
+  }
+  cb(null, true);
+};
 
 // Storage for chat attachments (images, videos, documents, etc.)
 export const storage = new CloudinaryStorage({
@@ -108,14 +153,18 @@ export const upload = multer({
   storage: storage,
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB max (matches validation)
+    files: 10, // Max 10 files per request
   },
+  fileFilter: fileFilter,
 });
 
 export const uploadProfile = multer({
   storage: profileStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB for profiles
+    files: 1,
   },
+  fileFilter: profileFileFilter,
 });
 
 // Add helper to detect resource type from publicId

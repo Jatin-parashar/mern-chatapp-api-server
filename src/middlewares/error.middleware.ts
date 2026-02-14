@@ -100,7 +100,7 @@ const sendErrorProd = (err: AppError, req: Request, res: Response): void => {
   }
 };
 
-export default (err: any, req: Request, res: Response, next: NextFunction): void => {
+export default (err: any, req: Request, res: Response, _next: NextFunction): void => {
   if (typeof err === "string") {
     err = new AppError(err, 500);
   }

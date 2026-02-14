@@ -1,7 +1,8 @@
 import { Response } from "express";
+import { RESPONSE_STATUS } from "../config/constants.js";
 
 interface ApiResponse<T = any> {
-  status: "success";
+  status: typeof RESPONSE_STATUS.SUCCESS;
   message: string;
   data?: T;
 }
@@ -13,7 +14,7 @@ export const sendSuccessResponse = <T>(
   data?: T
 ): void => {
   const response: ApiResponse<T> = {
-    status: "success",
+    status: RESPONSE_STATUS.SUCCESS,
     message,
   };
 

@@ -3,7 +3,6 @@ import Message from "../models/message.model.js";
 import Conversation from "../models/conversation.model.js";
 import {
   createMessageInConversation,
-  fetchMessagesByConversationId,
   fetchMessagesByCursor,
   markMessageAsSeen,
   markConversationMessagesSeen as markConversationMessagesSeenService,
@@ -14,6 +13,7 @@ import { AuthRequest } from "../types/express.js";
 import { buildPaginatedQuery } from "../utils/queryBuilder.js";
 import { messagePopulateOptions, conversationPopulateOptions } from "../utils/populateOptions.js";
 import { emitNewMessage, emitMessageSeen, emitConversationMessagesSeen, notifyNewConversation } from "../services/socket.service.js";
+import { SUCCESS_MESSAGES } from "../config/constants.js";
 
 export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) => {
   const { conversationId, content, attachments, messageType, replyTo } = req.body;
@@ -44,7 +44,7 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
     responseData.conversation = fullConversation;
   }
 
-  sendSuccessResponse(res, 201, "Message sent successfully", responseData);
+  sendSuccessResponse(res, 201, SUCCESS_MESSAGES.MESSAGE_SENT, responseData);
 });
 
 export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -59,7 +59,7 @@ export const getMessagesByConversation = catchAsync(async (req: AuthRequest, res
       lean: true
     }
   );
-  sendSuccessResponse(res, 200, "Messages fetched successfully", result);
+  sendSuccessResponse(res, 200, SUCCESS_MESSAGES.MESSAGES_FETCHED, result);
 });
 
 export const markConversationMessagesSeen = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -87,8 +87,8 @@ export const markMessageSeen = catchAsync(async (req: AuthRequest, res: Response
     res,
     200,
     alreadySeen
-      ? "Message already marked as seen"
-      : "Message marked as seen successfully"
+      ? SUCCESS_MESSAGES.MESSAGE_ALREADY_SEEN
+      : SUCCESS_MESSAGES.MESSAGE_MARKED_SEEN
   );
 });
 
@@ -98,5 +98,5 @@ export const getMessagesByCursor = catchAsync(async (req: AuthRequest, res: Resp
   const limit = parseInt(req.query.limit as string) || 50;
 
   const result = await fetchMessagesByCursor(id, cursor, limit);
-  sendSuccessResponse(res, 200, "Messages fetched successfully", result);
+  sendSuccessResponse(res, 200, SUCCESS_MESSAGES.MESSAGES_FETCHED, result);
 });

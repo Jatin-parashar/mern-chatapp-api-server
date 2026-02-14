@@ -29,7 +29,7 @@ export const parsePaginationParams = (
 export const createPaginationResult = <T>(
   data: T[],
   total: number,
-  limit: number,
+  _limit: number,
   skip: number
 ): PaginationResult<T> => {
   return {

@@ -8,7 +8,9 @@
     "strict": true,                    // Full type safety
     "esModuleInterop": true,           // Default import from CJS
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": ["src/**/*.ts"],          // Look for all TS files in src
   "exclude": ["node_modules", "dist"]  // Exclude compiled output & deps
