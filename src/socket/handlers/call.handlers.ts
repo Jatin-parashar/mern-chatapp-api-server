@@ -126,31 +126,25 @@ export const registerCallHandlers = (io: Server, socket: CustomSocket): void => 
           signal,
         });
 
+        // Set ring timeout for no answer regardless of online status
+        const ringTimeout = setTimeout(async () => {
+          const call = getActiveCall(callId);
+          if (call && call.status === CALL_STATUS.CALLING) {
+            await markCallAsMissed(callId);
+            removeActiveCall(callId);
+            socket.emit(SOCKET_CALL_DECLINED, {
+              callId,
+              reason: CALL_DECLINE_REASONS.NO_ANSWER,
+            });
+          }
+        }, CALL_RING_TIMEOUT);
+        
+        updateActiveCall(callId, { ringTimeout } as any);
+
         if (emitted) {
           logger.debug(`Call signal sent to receiver: ${receiverId}`);
-          // Set ring timeout for no answer
-          const ringTimeout = setTimeout(async () => {
-            const call = getActiveCall(callId);
-            if (call && call.status === CALL_STATUS.CALLING) {
-              await markCallAsMissed(callId);
-              removeActiveCall(callId);
-              socket.emit(SOCKET_CALL_DECLINED, {
-                callId,
-                reason: CALL_DECLINE_REASONS.NO_ANSWER,
-              });
-            }
-          }, CALL_RING_TIMEOUT);
-          
-          updateActiveCall(callId, { ringTimeout } as any);
         } else {
-          logger.warn(`Receiver ${receiverId} is offline`);
-          // Immediately notify caller that receiver is offline
-          await markCallAsMissed(callId);
-          removeActiveCall(callId);
-          socket.emit(SOCKET_CALL_DECLINED, {
-            callId,
-            reason: CALL_DECLINE_REASONS.USER_OFFLINE,
-          });
+          logger.debug(`Receiver ${receiverId} is offline, call will timeout as missed`);
         }
       } catch (error) {
         logger.error(
