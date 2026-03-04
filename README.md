@@ -81,7 +81,7 @@ CLIENT_URL=http://localhost:5173
 
 # Database — replica set required for transactions
 DATABASE_URI=mongodb://localhost:27017/chatAppDB?replicaSet=rs0
-# Atlas: DATABASE_URI=mongodb+srv://user:pass@cluster.mongodb.net/chatAppDB
+# Atlas: DATABASE_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/chatAppDB
 
 # JWT — use 32+ random characters in production
 ACCESS_JWT_SECRET=your-access-secret
