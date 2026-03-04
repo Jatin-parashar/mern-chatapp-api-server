@@ -32,7 +32,7 @@ const validateGroup = (
   if (!name || name.trim() === VALIDATION_CONSTANTS.EMPTY_STRING) {
     throw new AppError(HTTP_MESSAGES.VALIDATION.GROUP_NAME_REQUIRED, 400);
   }
-  if (participants.length < 3) {
+  if (participants.length < 2) {
     throw new AppError(HTTP_MESSAGES.VALIDATION.MIN_PARTICIPANTS_GROUP, 400);
   }
 };

@@ -16,8 +16,7 @@ export const emitNewMessage = async (userId: string, conversationId: string, mes
   const io = getIO();
   if (!io) return;
 
-  // Emit message to recipients
-  io.to(userId).emit(SOCKET_MESSAGE_RECEIVED, message);
+  // Emit message to conversation room only (sender is already in the room)
   io.to(conversationId).emit(SOCKET_MESSAGE_RECEIVED, message);
 
   // Auto-mark as delivered for online recipients

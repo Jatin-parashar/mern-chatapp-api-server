@@ -205,6 +205,13 @@ export const markConversationMessagesSeen = async (
 ): Promise<number> => {
   validateObjectId(conversationId, "Conversation ID");
 
+  // Validate user is a participant
+  const conversation = await Conversation.findById(conversationId, { participants: 1 }).lean<{ participants: Types.ObjectId[] }>();
+  if (!conversation) throw new AppError(HTTP_MESSAGES.ERROR.NOT_FOUND, 404);
+  
+  const isParticipant = conversation.participants.some(p => toString(p) === toString(userId));
+  if (!isParticipant) throw new AppError(HTTP_MESSAGES.ERROR.NOT_PARTICIPANT, 403);
+
   const result = await Message.updateMany(
     {
       conversationId,
