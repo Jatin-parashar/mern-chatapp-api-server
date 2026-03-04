@@ -19,7 +19,10 @@ export const getCurrentUser = catchAsync(async (req: AuthRequest, res: Response)
 });
 
 export const getAllUsers = catchAsync(async (req: AuthRequest, res: Response) => {
-  const result = await buildPaginatedQuery(User, req.query, { lean: true });
+  const result = await buildPaginatedQuery(User, req.query, {
+    lean: true,
+    select: '_id name username profilePic status',
+  });
   sendSuccessResponse(res, 200, SUCCESS_MESSAGES.USERS_FETCHED, result);
 });
 
@@ -29,7 +32,12 @@ export const getuserById = catchAsync(async (req: AuthRequest, res: Response) =>
 });
 
 export const searchUsersByKeyword = catchAsync(async (req: AuthRequest, res: Response) => {
-  const keyword = req.query.keyword as string;
+  const keyword = (req.query.keyword as string)?.trim();
+
+  if (!keyword) {
+    return sendSuccessResponse(res, 200, SUCCESS_MESSAGES.USERS_FETCHED, { data: [], total: 0, count: 0, hasMore: false });
+  }
+
   const sanitizedKeyword = sanitizeRegexInput(keyword);
 
   const filter = {
@@ -39,7 +47,11 @@ export const searchUsersByKeyword = catchAsync(async (req: AuthRequest, res: Res
     ],
   };
 
-  const result = await buildPaginatedQuery(User, req.query, { filter, lean: true });
+  const result = await buildPaginatedQuery(User, req.query, {
+    filter,
+    lean: true,
+    select: '_id name username profilePic status',
+  });
   sendSuccessResponse(res, 200, SUCCESS_MESSAGES.USERS_FETCHED, result);
 });
 

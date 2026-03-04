@@ -20,6 +20,7 @@ const userSchema = new Schema<IUser>(
 );
 
 userSchema.index({ name: 1 });
+userSchema.index({ name: 'text', username: 'text' });
 
 const User = mongoose.models.User || model(MODEL_NAMES.USER, userSchema);
 export default User;

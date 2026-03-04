@@ -54,15 +54,17 @@ export const createMessageInConversation = async (
   userId: string | Types.ObjectId,
   conversationId: string | Types.ObjectId,
   messageData: MessageData
-): Promise<MessageWithPopulatedFields> => {
+): Promise<{ message: MessageWithPopulatedFields; isFirstMessage: boolean }> => {
   validateSendMessageInput(conversationId, messageData);
 
-  const conversation = await Conversation.findById(conversationId);
+  const conversation = await Conversation.findById(conversationId, { participants: 1, lastMessage: 1 });
   if (!conversation) {
     throw new AppError(HTTP_MESSAGES.ERROR.NOT_FOUND.replace("not found", "Conversation not found"), 404);
   }
 
   validateUserBelongsToConversation(conversation, userId.toString());
+
+  const isFirstMessage = !conversation.lastMessage;
 
   const {
     content,
@@ -71,39 +73,30 @@ export const createMessageInConversation = async (
     replyTo,
   } = messageData;
 
-  // Build message object
   const messageObj: any = {
     conversationId,
     sender: userId,
     messageType,
   };
 
-  // Add content if provided (sanitized)
   if (content) {
     messageObj.content = sanitizeHtml(content.trim());
   }
 
-  // Add attachments if provided
   if (attachments && attachments.length > 0) {
     messageObj.attachments = attachments;
   }
 
-  // Add reply reference if provided
   if (replyTo) {
     messageObj.replyTo = replyTo;
   }
 
-  // Create message and update conversation in parallel
-  const [message] = await Promise.all([
-    Message.create(messageObj),
-    Conversation.findByIdAndUpdate(conversationId, {
-      updatedAt: new Date(),
-    }),
-  ]);
+  // Create message, then update conversation in one write
+  const message = await Message.create(messageObj);
 
-  // Update lastMessage after creation
   await Conversation.findByIdAndUpdate(conversationId, {
     lastMessage: message._id,
+    updatedAt: new Date(),
   });
 
   const populatedMessage = await message.populate(messagePopulateOptions);
@@ -111,7 +104,7 @@ export const createMessageInConversation = async (
   logger.debug(
     `${messageType} message created in conversation ${conversationId} by user ${userId}`
   );
-  return populatedMessage.toObject() as MessageWithPopulatedFields;
+  return { message: populatedMessage.toObject() as MessageWithPopulatedFields, isFirstMessage };
 };
 
 export const fetchMessagesByConversationId = async (
@@ -233,17 +226,26 @@ export const markPendingMessagesAsDelivered = async (
 ): Promise<Array<{ messageId: string; conversationId: string }>> => {
   validateObjectId(userId, "User ID");
 
+  // Only mark messages in conversations the user belongs to
+  const userConversations = await Conversation.find(
+    { participants: userId },
+    { _id: 1 }
+  ).lean<Array<{ _id: Types.ObjectId }>>();
+
+  if (userConversations.length === 0) return [];
+
+  const conversationIds = userConversations.map(c => c._id);
+
   const messages = await Message.find(
     {
+      conversationId: { $in: conversationIds },
       sender: { $ne: userId },
       deliveredTo: { $ne: userId },
     },
     { _id: 1, conversationId: 1 }
   ).lean();
 
-  if (messages.length === 0) {
-    return [];
-  }
+  if (messages.length === 0) return [];
 
   const messageIds = messages.map(m => m._id);
   await Message.updateMany(
@@ -252,8 +254,7 @@ export const markPendingMessagesAsDelivered = async (
   );
 
   logger.debug(`${messages.length} pending messages marked as delivered to user ${userId}`);
-  
-  // Return both messageIds and conversationIds for notifications
+
   return messages.map(m => ({
     messageId: (m._id as Types.ObjectId).toString(),
     conversationId: (m.conversationId as Types.ObjectId).toString(),

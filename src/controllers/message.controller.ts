@@ -25,10 +25,7 @@ export const sendMessage = catchAsync(async (req: AuthRequest, res: Response) =>
     replyTo,
   };
 
-  const conversation = await Conversation.findById(conversationId, { lastMessage: 1 });
-  const isFirstMessage = !conversation?.lastMessage;
-
-  const message = await createMessageInConversation(
+  const { message, isFirstMessage } = await createMessageInConversation(
     req.user!._id,
     conversationId,
     messageData

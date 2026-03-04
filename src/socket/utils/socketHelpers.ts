@@ -68,7 +68,7 @@ export const addUserSocket = (userId: string, socketId: string): void => {
 
 export const removeUserSocket = (socketId: string): string | undefined => {
   let removedUserId: string | undefined = undefined;
-  
+
   for (const [userId, sockets] of onlineUsers.entries()) {
     const filtered = sockets.filter((s) => s !== socketId);
     if (filtered.length !== sockets.length) {
@@ -80,11 +80,14 @@ export const removeUserSocket = (socketId: string): string | undefined => {
       }
     }
   }
-  
+
+  // Always clean up lastSeen for this socket
+  userLastSeen.delete(socketId);
+
   if (removedUserId) {
     logger.debug(`User ${removedUserId} went offline (socket ${socketId} removed)`);
   }
-  
+
   return removedUserId;
 };
 

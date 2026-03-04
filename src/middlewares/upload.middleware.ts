@@ -3,17 +3,13 @@ import AppError from "../utils/appError.js";
 import logger from "../utils/logger.js";
 import { FileRequest } from "../types/express.js";
 import { sanitizeFilename } from "../utils/sanitization.js";
-
-const DANGEROUS_EXTENSIONS = [
-  '.exe', '.bat', '.cmd', '.sh', '.ps1', '.msi', '.app', '.deb', '.rpm',
-  '.dmg', '.pkg', '.run', '.bin', '.com', '.scr', '.vbs', '.js', '.jar'
-];
+import { DANGEROUS_EXTENSIONS, FILE_LIMITS } from "../config/constants.js";
 
 const FILE_SIZE_LIMITS: Record<string, number> = {
-  image: 10 * 1024 * 1024,    // 10MB
-  video: 50 * 1024 * 1024,    // 50MB
-  document: 25 * 1024 * 1024, // 25MB
-  default: 25 * 1024 * 1024   // 25MB
+  image: FILE_LIMITS.MESSAGE_IMAGE,
+  video: FILE_LIMITS.MESSAGE_VIDEO,
+  document: FILE_LIMITS.MESSAGE_DOCUMENT,
+  default: FILE_LIMITS.DEFAULT,
 };
 
 const MIME_TYPE_EXTENSIONS: Record<string, string[]> = {
@@ -38,7 +34,7 @@ const validateFile = (file: CloudinaryFile): void => {
   const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] || '';
   
   // Block dangerous extensions
-  if (DANGEROUS_EXTENSIONS.includes(ext)) {
+  if ((DANGEROUS_EXTENSIONS as readonly string[]).includes(ext)) {
     throw new AppError(`File type ${ext} is not allowed`, 400);
   }
   

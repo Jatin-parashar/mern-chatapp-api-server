@@ -5,6 +5,9 @@ export const validateObjectId = (id: string | Types.ObjectId, fieldName: string 
   if (!id) {
     throw new AppError(`${fieldName} is required`, 400);
   }
+  if (!Types.ObjectId.isValid(id)) {
+    throw new AppError(`${fieldName} is invalid`, 400);
+  }
 };
 
 export const validateArrayNotEmpty = <T>(array: T[], fieldName: string): void => {

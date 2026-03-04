@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/user.model.js";
 import AuthCredential from "../models/auth.model.js";
 import { throwRequired } from "../utils/errorHelpers.js";
@@ -19,32 +20,36 @@ export const createUser = async (
     throw new AppError(HTTP_MESSAGES.AUTH.EMAIL_IN_USE, 400);
   }
 
-  const existingUsername = await User.findOne({ username});
+  const existingUsername = await User.findOne({ username });
   if (existingUsername) {
     throw new AppError(HTTP_MESSAGES.AUTH.USERNAME_TAKEN, 400);
   }
 
   const hashedPassword = await hashPassword(password);
 
-  const user = await AuthCredential.create({
-    email,
-    password: hashedPassword,
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  await User.create({
-    _id: user._id,
-    name,
-    username,
-    ...(status !== undefined && { status }),
-    ...(profilePic !== undefined && { profilePic }),
-  });
+  try {
+    const [auth] = await AuthCredential.create([{ email, password: hashedPassword }], { session });
 
-  const createdUser: UserPayload = {
-    _id: user._id.toString(),
-    email: user.email,
-  };
+    await User.create([{
+      _id: auth._id,
+      name,
+      username,
+      ...(status !== undefined && { status }),
+      ...(profilePic !== undefined && { profilePic }),
+    }], { session });
 
-  return createdUser;
+    await session.commitTransaction();
+
+    return { _id: auth._id.toString(), email: auth.email };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 export const loginUser = async (

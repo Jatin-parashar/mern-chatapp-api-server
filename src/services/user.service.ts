@@ -4,8 +4,10 @@ import { IUser } from "../types/models.js";
 import { throwNotFound, throwRequired, throwTooLong } from "../utils/errorHelpers.js";
 import { ENTITY_NAMES, VALIDATION_CONSTANTS } from "../config/constants.js";
 
+const PUBLIC_USER_FIELDS = '_id name username profilePic status createdAt updatedAt';
+
 export const findUserById = async (id: string | Types.ObjectId): Promise<IUser> => {
-  const user = await User.findById(id);
+  const user = await User.findById(id).select(PUBLIC_USER_FIELDS);
   if (!user) throwNotFound(ENTITY_NAMES.USER);
   return user;
 };
@@ -22,7 +24,7 @@ export const updateUserStatus = async (
   const updatedUser = await User.findByIdAndUpdate(
     userId,
     { status },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true, select: PUBLIC_USER_FIELDS }
   );
 
   if (!updatedUser) throwNotFound(ENTITY_NAMES.USER);

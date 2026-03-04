@@ -44,6 +44,8 @@ const messageSchema = new Schema<IMessage>(
 messageSchema.index({ conversationId: 1, createdAt: 1 });
 messageSchema.index({ conversationId: 1, sender: 1 });
 messageSchema.index({ conversationId: 1, deliveredTo: 1 });
+messageSchema.index({ conversationId: 1, seenBy: 1 });
+messageSchema.index({ conversationId: 1, sender: 1, deliveredTo: 1 });
 
 const Message = mongoose.models.Message || model(MODEL_NAMES.MESSAGE, messageSchema);
 export default Message;

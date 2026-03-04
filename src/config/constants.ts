@@ -269,6 +269,14 @@ export const AUTH_ERROR_MESSAGES = {
 export const USER_SELECT_FIELDS = "_id name username profilePic status" as const;
 export const MESSAGE_SELECT_FIELDS = "content messageType sender createdAt" as const;
 
+// Rate Limit Config
+export const RATE_LIMITS = {
+  LOGIN:   { WINDOW_MS: 15 * 60 * 1000, MAX: 5   },   // 5 req / 15 min  — strictest
+  AUTH:    { WINDOW_MS: 15 * 60 * 1000, MAX: 10  },   // 10 req / 15 min — register, refresh
+  API:     { WINDOW_MS: 60 * 1000,      MAX: 100 },   // 100 req / 1 min
+  MESSAGE: { WINDOW_MS: 60 * 1000,      MAX: 60  },   // 60 req / 1 min
+} as const;
+
 // Populate Paths
 export const POPULATE_PATHS = {
   SENDER: "sender",

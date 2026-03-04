@@ -38,7 +38,7 @@ export const registerSchema = Joi.object({
       "string.max": "Password cannot exceed 20 characters",
       "string.pattern.base": "Password must have at least one uppercase letter, one lowercase letter, one number, and one special character",
     }),
-  status: Joi.string().max(100).optional(),
+  status: Joi.string().max(200).optional(),
 });
 
 export const loginSchema = Joi.object({
@@ -61,14 +61,16 @@ export const refreshTokenSchema = Joi.object({
 
 export const createConversationSchema = Joi.object({
   participants: Joi.array()
-    .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+    .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required())
     .min(1)
+    .max(50)
     .required()
     .messages({
       "array.min": "At least one participant is required",
+      "array.max": "Cannot add more than 50 participants",
       "string.pattern.base": "Invalid participant ID format",
     }),
-  name: Joi.string().max(100).optional(),
+  name: Joi.string().min(1).max(100).optional(),
 });
 
 export const sendMessageSchema = Joi.object({
@@ -78,12 +80,12 @@ export const sendMessageSchema = Joi.object({
     .messages({
       "string.pattern.base": "Invalid conversation ID format",
     }),
-  content: Joi.string().max(10000).optional(),
+  content: Joi.string().min(1).max(10000).optional(),
   messageType: Joi.string()
     .valid(...MESSAGE_TYPES)
     .optional(),
   replyTo: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).optional(),
-  attachments: Joi.array().optional(),
+  attachments: Joi.array().items(Joi.object()).max(10).optional(),
 });
 
 export const updateUserStatusSchema = Joi.object({
